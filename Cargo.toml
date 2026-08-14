@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/capture"]
+members = ["crates/capture", "crates/overlay"]
 
 [package]
 name = "ricture"
@@ -9,3 +9,4 @@ edition = "2024"
 
 [dependencies]
 ricture-capture = { path = "crates/capture" }
+ricture-overlay = { path = "crates/overlay" }
