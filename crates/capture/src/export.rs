@@ -1,11 +1,11 @@
-use crate::state::Buffer;
+use crate::state::{Buffer, Screenshot};
 use std::fs::File;
 use std::io::BufWriter;
 use wayland_client::protocol::wl_shm::Format;
 
 /// Converts a wl_shm `Argb8888`/`Xrgb8888` frame (B,G,R,A/X byte order in
-/// memory) into an RGBA PNG on disk.
-pub(crate) fn write_png(path: &str, buffer: &Buffer, pixels: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+/// memory) into a plain RGBA8 `Screenshot`.
+pub(crate) fn to_rgba(buffer: &Buffer, pixels: &[u8]) -> Result<Screenshot, Box<dyn std::error::Error>> {
     let format = buffer.format.into_result()?;
     let width = buffer.width as usize;
     let height = buffer.height as usize;
@@ -26,11 +26,15 @@ pub(crate) fn write_png(path: &str, buffer: &Buffer, pixels: &[u8]) -> Result<()
         }
     }
 
+    Ok(Screenshot { width: buffer.width as u32, height: buffer.height as u32, rgba })
+}
+
+pub fn save_png(screenshot: &Screenshot, path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let writer = BufWriter::new(File::create(path)?);
-    let mut encoder = png::Encoder::new(writer, width as u32, height as u32);
+    let mut encoder = png::Encoder::new(writer, screenshot.width, screenshot.height);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
-    encoder.write_header()?.write_image_data(&rgba)?;
+    encoder.write_header()?.write_image_data(&screenshot.rgba)?;
 
     Ok(())
 }

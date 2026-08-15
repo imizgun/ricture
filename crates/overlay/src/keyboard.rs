@@ -1,4 +1,4 @@
-use crate::state::App;
+use crate::state::{App, ExitFlag};
 use smithay_client_toolkit::seat::keyboard::{KeyEvent, KeyboardHandler, Keysym, Modifiers, RawModifiers};
 use smithay_client_toolkit::shell::WaylandSurface;
 use wayland_client::protocol::{wl_keyboard, wl_surface};
@@ -42,7 +42,10 @@ impl KeyboardHandler for App {
         event: KeyEvent,
     ) {
         if event.keysym == Keysym::Escape {
-            self.exit = true;
+            self.exit_flag = Some(ExitFlag::Cancelled);
+        }
+        if event.keysym == Keysym::Return {
+            self.exit_flag = Some(ExitFlag::FrameConfirmed)
         }
     }
 
@@ -76,5 +79,8 @@ impl KeyboardHandler for App {
         _raw_modifiers: RawModifiers,
         _layout: u32,
     ) {
+        if _modifiers.ctrl {
+
+        }
     }
 }

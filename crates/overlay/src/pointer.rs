@@ -22,14 +22,17 @@ impl PointerHandler for App {
                 Enter { .. } | Leave { .. } | Axis { .. } => {}
 
                 Motion { .. } => {
-                    self.selection_current = Some(event.position);
+                    if self.is_dragging {
+                        self.selection_current = Some(event.position);
+                    }
                 }
                 Press { .. } => {
                     self.selection_start = Some(event.position);
+                    self.is_dragging = true;
                 }
                 Release { .. } => {
                     self.selection_current = Some(event.position);
-                    self.exit = true;
+                    self.is_dragging = false;
                 }
             }
         }

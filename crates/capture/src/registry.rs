@@ -17,8 +17,6 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppState {
         let Event::Global { name, interface, version } = event else {
             return;
         };
-        println!("[{name:>3}] {interface} (v{version})");
-
         if interface == WlOutput::interface().name {
             let version = version.min(WlOutput::interface().version);
             state.outputs.push(registry.bind::<WlOutput, _, _>(name, version, qh, ()));

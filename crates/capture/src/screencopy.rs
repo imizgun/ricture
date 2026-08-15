@@ -31,7 +31,6 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppState {
         qhandle: &QueueHandle<Self>) {
         match event {
             Event::Buffer { format, width, height, stride } => {
-                println!("{width}, {height}, {stride}");
                 state.buffer = Some(state::Buffer { format: format.clone(),
                     width: width as i32,
                     height: height as i32,
@@ -44,24 +43,21 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppState {
                 proxy.copy(&buf.0);
                 state.wl_buffer = Some(buf.0);
                 state.mmap_mut = Some(buf.1);
-                println!("DONE");
             },
             Event::Ready { .. } => {
                 state.capture_done = true;
-                println!("READY");
             }
-            Event::Flags { .. } => {
-                println!("{:?}", event);
-            }
-            _ => println!("{:?}", event),
+            _ => {}
         }
     }
 }
 
-pub fn capture_first_output() -> Result<(), Box<dyn std::error::Error>> {
-    let (_conn, mut eq,mut state) = crate::connection::connect()?;
+pub fn capture_first_output() -> Result<crate::state::Screenshot, Box<dyn std::error::Error>> {
+    let (_conn, mut eq, mut state) = crate::connection::connect()?;
     let qh = eq.handle();
-    let _output = state.screencopy_manager.as_ref()
+    let _frame = state
+        .screencopy_manager
+        .as_ref()
         .unwrap()
         .capture_output(0, &state.outputs[0], &qh, ());
 
@@ -71,8 +67,5 @@ pub fn capture_first_output() -> Result<(), Box<dyn std::error::Error>> {
 
     let buffer = state.buffer.as_ref().unwrap();
     let mmap = state.mmap_mut.as_ref().unwrap();
-    crate::export::write_png("screenshot.png", buffer, mmap)?;
-    println!("saved screenshot.png");
-
-    Ok(())
+    crate::export::to_rgba(buffer, mmap)
 }

@@ -1,4 +1,4 @@
-use crate::state::App;
+use crate::state::{App, ExitFlag};
 use smithay_client_toolkit::shell::wlr_layer::{LayerShellHandler, LayerSurface, LayerSurfaceConfigure};
 use smithay_client_toolkit::shm::slot::SlotPool;
 use std::num::NonZeroU32;
@@ -6,7 +6,7 @@ use wayland_client::{Connection, QueueHandle};
 
 impl LayerShellHandler for App {
     fn closed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _layer: &LayerSurface) {
-        self.exit = true;
+        self.exit_flag = Some(ExitFlag::Cancelled);
     }
 
     fn configure(

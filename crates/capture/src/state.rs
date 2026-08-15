@@ -22,3 +22,9 @@ pub(crate) struct Buffer {
     pub(crate) height: i32,
     pub(crate) stride: i32,
 }
+
+pub struct Screenshot {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}

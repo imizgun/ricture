@@ -19,8 +19,3 @@ pub(crate) fn connect() -> Result<(Connection, EventQueue<AppState>, AppState), 
 
     Ok((conn, event_queue, state))
 }
-
-pub fn list_globals() -> Result<(), Box<dyn std::error::Error>> {
-    connect()?;
-    Ok(())
-}
