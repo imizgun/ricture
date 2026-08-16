@@ -23,7 +23,7 @@ impl LayerShellHandler for App {
         if self.first_configure {
             self.first_configure = false;
             let byte_size = self.width as usize * self.height as usize * 4;
-            self.pool = Some(SlotPool::new(byte_size, &self.shm).expect("failed to create shm pool"));
+            self.renderer.pool = Some(SlotPool::new(byte_size, &self.shm).expect("failed to create shm pool"));
             self.draw(qh);
         }
     }

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 ricture-capture = { path = "../capture" }
+ricture-config = { path = "../config" }
 wayland-client = "0.31"
 smithay-client-toolkit = "0.21"
-tiny-skia = "0.11"
+tiny-skia = "0.12.0"

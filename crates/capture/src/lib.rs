@@ -6,6 +6,6 @@ mod screencopy;
 mod shm;
 mod state;
 
-pub use export::save_png;
+pub use export::{encode_png, save_png};
 pub use screencopy::capture_first_output;
 pub use state::Screenshot;

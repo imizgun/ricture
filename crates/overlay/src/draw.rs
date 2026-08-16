@@ -11,36 +11,22 @@ impl App {
         let height = self.height;
         let stride = width as i32 * 4;
 
-        let first_draw = self.pixmap.is_none();
-        let selection_changed =
-            (self.selection_start, self.selection_current) != (self.prev_selection_start, self.prev_selection_current);
+        let first_draw = self.renderer.pixmap.is_none();
+        let selection_changed = self.selection.changed();
 
         if !first_draw && !selection_changed {
-            // Nothing to redraw — keep the frame-callback chain alive so we
-            // notice future changes, but skip the expensive part entirely.
             self.layer.wl_surface().frame(qh, FrameCallbackData(self.layer.wl_surface().clone()));
             self.layer.commit();
             return;
         }
 
-        // Allocated once, ever. Every real redraw just overwrites its bytes
-        // from the (also persistent) screenshot — no new allocation, and no
-        // stale dim/border left over from the previous frame.
         if first_draw {
-            self.pixmap = Some(Pixmap::new(width, height).expect("non-zero surface size"));
+            self.renderer.pixmap = Some(Pixmap::new(width, height).expect("non-zero surface size"));
         }
-        let pixmap = self.pixmap.as_mut().unwrap();
+        let pixmap = self.renderer.pixmap.as_mut().unwrap();
         pixmap.data_mut().copy_from_slice(&self.screenshot.rgba);
 
-        let selection_rect = match (self.selection_start, self.selection_current) {
-            (Some((x0, y0)), Some((x1, y1))) => Rect::from_ltrb(
-                x0.min(x1) as f32,
-                y0.min(y1) as f32,
-                x0.max(x1) as f32,
-                y0.max(y1) as f32,
-            ),
-            _ => None,
-        };
+        let selection_rect = self.selection.rect();
 
         let mut mask = PathBuilder::new();
         mask.push_rect(Rect::from_ltrb(0.0, 0.0, width as f32, height as f32).unwrap());
@@ -56,12 +42,12 @@ impl App {
         if let Some(rect) = selection_rect {
             let border = PathBuilder::from_rect(rect);
             let mut paint = Paint::default();
-            paint.set_color(Color::from_rgba8(90, 170, 255, 255));
+            paint.set_color(self.config.rect_color);
             let stroke = Stroke { width: 2.0, ..Default::default() };
             pixmap.stroke_path(&border, &paint, &stroke, Transform::identity(), None);
         }
 
-        let pool = self.pool.as_mut().expect("pool is created on first configure");
+        let pool = self.renderer.pool.as_mut().expect("pool is created on first configure");
         let (buffer, canvas) = pool
             .create_buffer(width as i32, height as i32, stride, wl_shm::Format::Argb8888)
             .expect("create buffer");
@@ -79,7 +65,6 @@ impl App {
         buffer.attach_to(self.layer.wl_surface()).expect("buffer attach");
         self.layer.commit();
 
-        self.prev_selection_start = self.selection_start;
-        self.prev_selection_current = self.selection_current;
+        self.selection.mark_drawn();
     }
 }

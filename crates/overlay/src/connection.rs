@@ -1,4 +1,6 @@
-use crate::state::{App, ExitFlag};
+use crate::renderer::Renderer;
+use crate::selection::Selection;
+use crate::state::{Action, App, AppConfig, ExitFlag};
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;
 use smithay_client_toolkit::registry::RegistryState;
@@ -9,13 +11,10 @@ use smithay_client_toolkit::shm::Shm;
 use wayland_client::Connection;
 use wayland_client::globals::registry_queue_init;
 
-/// On confirm: `(x, y, width, height)` of the selection (already normalized —
-/// drag direction doesn't matter) plus the `Screenshot` handed back, since
-/// `App` had to take ownership of it and this is the only way to get it back.
-/// On cancel: `None`.
 pub fn run(
     screenshot: ricture_capture::Screenshot,
-) -> Result<Option<((f64, f64, f64, f64), ricture_capture::Screenshot)>, Box<dyn std::error::Error>> {
+    config: AppConfig
+) -> Result<Option<(Action, (f64, f64, f64, f64), ricture_capture::Screenshot)>, Box<dyn std::error::Error>> {
     let conn = Connection::connect_to_env()?;
     let (globals, mut event_queue) = registry_queue_init(&conn)?;
     let qh = event_queue.handle();
@@ -42,22 +41,20 @@ pub fn run(
 
         exit_flag: None,
         first_configure: true,
-        pool: None,
         width: 0,
         height: 0,
 
         layer,
         keyboard: None,
         keyboard_focus: false,
+        ctrl_held: false,
         pointer: None,
 
         screenshot,
-        pixmap: None,
-        selection_start: None,
-        selection_current: None,
-        prev_selection_start: None,
-        prev_selection_current: None,
-        is_dragging: false
+        renderer: Renderer::default(),
+        selection: Selection::default(),
+
+        config,
     };
 
     while !app.exit_flag.is_some() {
@@ -65,11 +62,14 @@ pub fn run(
     }
 
     match app.exit_flag {
-        Some(ExitFlag::FrameConfirmed) => {
-            let (x0, y0) = app.selection_start.unwrap();
-            let (x1, y1) = app.selection_current.unwrap();
-            let rect = (x0.min(x1), y0.min(y1), (x1 - x0).abs(), (y1 - y0).abs());
-            Ok(Some((rect, app.screenshot)))
+        Some(ExitFlag::Copy) | Some(ExitFlag::Save) => {
+            let action = match app.exit_flag {
+                Some(ExitFlag::Copy) => Action::Copy,
+                Some(ExitFlag::Save) => Action::Save,
+                _ => unreachable!(),
+            };
+            let rect = app.selection.normalized().expect("confirmed selection must have both endpoints");
+            Ok(Some((action, rect, app.screenshot)))
         }
         Some(ExitFlag::Cancelled) | None => Ok(None),
     }

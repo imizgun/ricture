@@ -41,11 +41,12 @@ impl KeyboardHandler for App {
         _serial: u32,
         event: KeyEvent,
     ) {
-        if event.keysym == Keysym::Escape {
-            self.exit_flag = Some(ExitFlag::Cancelled);
-        }
-        if event.keysym == Keysym::Return {
-            self.exit_flag = Some(ExitFlag::FrameConfirmed)
+        match event.keysym {
+            Keysym::Escape => self.exit_flag = Some(ExitFlag::Cancelled),
+            Keysym::Return => self.exit_flag = Some(ExitFlag::Copy),
+            Keysym::c if self.ctrl_held => self.exit_flag = Some(ExitFlag::Copy),
+            Keysym::s if self.ctrl_held => self.exit_flag = Some(ExitFlag::Save),
+            _ => {}
         }
     }
 
@@ -75,12 +76,10 @@ impl KeyboardHandler for App {
         _qh: &QueueHandle<Self>,
         _keyboard: &wl_keyboard::WlKeyboard,
         _serial: u32,
-        _modifiers: Modifiers,
+        modifiers: Modifiers,
         _raw_modifiers: RawModifiers,
         _layout: u32,
     ) {
-        if _modifiers.ctrl {
-
-        }
+        self.ctrl_held = modifiers.ctrl;
     }
 }

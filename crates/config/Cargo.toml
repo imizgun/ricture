@@ -1,0 +1,9 @@
+[package]
+name = "ricture-config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+toml = "1.1.4+spec-1.1.0"
+serde = { version = "1.0.229", features = ["derive"] }
+regex = "1.13.1"

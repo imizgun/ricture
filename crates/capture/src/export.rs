@@ -1,6 +1,5 @@
 use crate::state::{Buffer, Screenshot};
-use std::fs::File;
-use std::io::BufWriter;
+use std::path::Path;
 use wayland_client::protocol::wl_shm::Format;
 
 /// Converts a wl_shm `Argb8888`/`Xrgb8888` frame (B,G,R,A/X byte order in
@@ -29,12 +28,17 @@ pub(crate) fn to_rgba(buffer: &Buffer, pixels: &[u8]) -> Result<Screenshot, Box<
     Ok(Screenshot { width: buffer.width as u32, height: buffer.height as u32, rgba })
 }
 
-pub fn save_png(screenshot: &Screenshot, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let writer = BufWriter::new(File::create(path)?);
-    let mut encoder = png::Encoder::new(writer, screenshot.width, screenshot.height);
+pub fn encode_png(screenshot: &Screenshot) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut bytes = Vec::new();
+    let mut encoder = png::Encoder::new(&mut bytes, screenshot.width, screenshot.height);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
     encoder.write_header()?.write_image_data(&screenshot.rgba)?;
 
+    Ok(bytes)
+}
+
+pub fn save_png(screenshot: &Screenshot, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    std::fs::write(path, encode_png(screenshot)?)?;
     Ok(())
 }

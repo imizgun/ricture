@@ -18,6 +18,7 @@
             pkgs.libxkbcommon
             pkgs.wayland
           ];
+          packages = [ pkgs.wl-clipboard ];
         };
       });
 }

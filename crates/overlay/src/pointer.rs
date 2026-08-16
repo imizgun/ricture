@@ -8,7 +8,7 @@ impl PointerHandler for App {
     fn pointer_frame(
         &mut self,
         _conn: &Connection,
-        qh: &QueueHandle<Self>,
+        _qh: &QueueHandle<Self>,
         _pointer: &wl_pointer::WlPointer,
         events: &[PointerEvent],
     ) {
@@ -22,17 +22,17 @@ impl PointerHandler for App {
                 Enter { .. } | Leave { .. } | Axis { .. } => {}
 
                 Motion { .. } => {
-                    if self.is_dragging {
-                        self.selection_current = Some(event.position);
+                    if self.selection.is_dragging {
+                        self.selection.current = Some(event.position);
                     }
                 }
                 Press { .. } => {
-                    self.selection_start = Some(event.position);
-                    self.is_dragging = true;
+                    self.selection.start = Some(event.position);
+                    self.selection.is_dragging = true;
                 }
                 Release { .. } => {
-                    self.selection_current = Some(event.position);
-                    self.is_dragging = false;
+                    self.selection.current = Some(event.position);
+                    self.selection.is_dragging = false;
                 }
             }
         }
