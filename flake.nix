@@ -18,11 +18,16 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
 
-          nativeBuildInputs = [ pkgs.pkg-config ];
+          nativeBuildInputs = [ pkgs.pkg-config pkgs.makeWrapper ];
           buildInputs = [
             pkgs.libxkbcommon
             pkgs.wayland
           ];
+
+          postFixup = ''
+            wrapProgram $out/bin/ricture \
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.wl-clipboard ]}
+          '';
         };
 
         devShells.default = pkgs.mkShell {

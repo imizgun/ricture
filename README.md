@@ -16,6 +16,10 @@ Without Nix, just make sure `pkg-config` and `libxkbcommon`'s dev headers are in
 
 Use `--release` — the overlay redraws itself continuously while open, and an unoptimized debug build is easily 30x slower per frame, which is very noticeable as input lag while dragging.
 
+### Runtime dependencies
+
+Copying to clipboard shells out to the `wl-copy` binary from [`wl-clipboard`](https://github.com/bugaevc/wl-clipboard) — it must be installed and on `$PATH` at run time, separately from the build-time dependencies above. `nix build .#default` wraps the binary with it automatically; outside Nix, install `wl-clipboard` through your distro's package manager.
+
 ## Running
 
 ```sh
@@ -28,7 +32,7 @@ cargo run --release -- --fullscreen
 
 Drag a rectangle, hit `Enter` to save it to `screenshot.png` in the current directory, or `Esc` to cancel.
 
-## Keybind
+## Keybinds
 | Key | Action |
 |-----|--------|
 | `Ctrl + C` / `Enter` / `Space` |   Copy selected area to clipboard     |
