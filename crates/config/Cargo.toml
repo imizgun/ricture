@@ -7,3 +7,4 @@ edition = "2024"
 toml = "1.1.4"
 serde = { version = "1.0.229", features = ["derive"] }
 regex = "1.13.1"
+validator = { version = "0.21", features = ["derive"] }

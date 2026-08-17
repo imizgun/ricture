@@ -64,6 +64,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // TODO:
-// 2. `--fullscreen` flag
-// 4. macros (?) for config validation
 // 5. native clipboard support

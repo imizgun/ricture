@@ -1,24 +1,50 @@
-use crate::validate::Validate;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::LazyLock;
+use validator::{Validate, ValidationError};
 
-#[derive(Deserialize, Serialize)]
+static RECT_COLOR_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)^#[0-9a-f]{6}([0-9a-f]{2})?$").unwrap());
+
+#[derive(Deserialize, Serialize, Validate)]
 pub struct Config {
+    #[validate(nested)]
     pub general: ConfigGeneral,
+    #[validate(nested)]
     pub appearance: ConfigAppearance,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Validate)]
 pub struct ConfigGeneral {
+    #[validate(custom(function = "validate_save_path"))]
     pub save_path: String,
 }
 
 const DEFAULT_RECT_COLOR: &'static str = "#ffffff";
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Validate)]
 pub struct ConfigAppearance {
+    #[validate(regex(
+        path = *RECT_COLOR_RE,
+        message = "invalid value for 'rect_color': valid value is '#rrggbb' or '#rrggbbaa'."
+    ))]
     pub rect_color: String,
+}
+
+fn validate_save_path(save_path: &str) -> Result<(), ValidationError> {
+    if let Some(parent) = std::path::Path::new(save_path).parent() {
+        if !parent.as_os_str().is_empty() && !parent.exists() {
+            return Err(ValidationError::new("missing_directory").with_message(
+                format!(
+                    "invalid value for 'save_path': directory '{}' does not exist.",
+                    parent.display()
+                )
+                .into(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 impl Default for ConfigGeneral {
@@ -70,49 +96,5 @@ impl Config {
         }
 
         Ok(toml::from_str(&std::fs::read_to_string(&path)?)?)
-    }
-}
-
-impl Validate<Config> for Config {
-    fn validate(&self) -> Result<(), String> {
-        let g_err = self.general.validate();
-        let a_err = self.appearance.validate();
-
-        if let Err(e) = g_err {
-            return Err(e);
-        }
-        if let Err(e) = a_err {
-            return Err(e);
-        }
-        Ok(())
-    }
-}
-
-impl Validate<ConfigAppearance> for ConfigAppearance {
-    fn validate(&self) -> Result<(), String> {
-        let re = Regex::new(r"(?i)^#[0-9a-f]{6}([0-9a-f]{2})?$").unwrap();
-
-        if !re.is_match(&self.rect_color) {
-            return Err(
-                "invalid value for 'rect_color': valid value is '#rrggbb' or '#rrggbbaa'."
-                    .to_string(),
-            );
-        }
-
-        Ok(())
-    }
-}
-
-impl Validate<ConfigGeneral> for ConfigGeneral {
-    fn validate(&self) -> Result<(), String> {
-        if let Some(parent) = std::path::Path::new(&self.save_path).parent() {
-            if !parent.as_os_str().is_empty() && !parent.exists() {
-                return Err(format!(
-                    "invalid value for 'save_path': directory '{}' does not exist.",
-                    parent.display()
-                ));
-            }
-        }
-        Ok(())
     }
 }

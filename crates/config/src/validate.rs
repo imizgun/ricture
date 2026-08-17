@@ -1,3 +1,1 @@
-pub trait Validate<T> {
-    fn validate(&self) -> Result<(), String>;
-}
+pub use validator::Validate;
