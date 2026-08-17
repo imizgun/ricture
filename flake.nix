@@ -12,6 +12,19 @@
         pkgs = import nixpkgs { inherit system; };
       in
       {
+        packages.default = pkgs.rustPlatform.buildRustPackage {
+          pname = "ricture";
+          version = "0.1.0";
+          src = ./.;
+          cargoLock.lockFile = ./Cargo.lock;
+
+          nativeBuildInputs = [ pkgs.pkg-config ];
+          buildInputs = [
+            pkgs.libxkbcommon
+            pkgs.wayland
+          ];
+        };
+
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [

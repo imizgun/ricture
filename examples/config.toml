@@ -1,5 +1,5 @@
 [general]
-save_path = "/home/vkabaczko/Pictures/Screenshots"
+save_path = "/home/user/Pictures/Screenshots"
 
 [appearance]
-rect_color = "#ffffffff"
+rect_color = "#ffffff"

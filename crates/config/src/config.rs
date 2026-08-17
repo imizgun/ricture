@@ -14,6 +14,8 @@ pub struct ConfigGeneral {
     pub save_path: String,
 }
 
+const DEFAULT_RECT_COLOR: &'static str = "#ffffff";
+
 #[derive(Deserialize, Serialize)]
 pub struct ConfigAppearance {
     pub rect_color: String,
@@ -28,7 +30,7 @@ impl Default for ConfigGeneral {
 
 impl Default for ConfigAppearance {
     fn default() -> Self {
-        ConfigAppearance { rect_color: "#5aaaffff".to_string() }
+        ConfigAppearance { rect_color: DEFAULT_RECT_COLOR.to_string() }
     }
 }
 

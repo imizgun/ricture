@@ -37,3 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+// TODO:
+// 1. macros (?) for config validation
+// 2. native clipboard support
+// 3. 

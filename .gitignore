@@ -12,3 +12,4 @@ target
 /.claude
 /.idea
 /.direnv
+/result
