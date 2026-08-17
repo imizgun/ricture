@@ -1,5 +1,7 @@
 use crate::state::{App, ExitFlag};
-use smithay_client_toolkit::seat::keyboard::{KeyEvent, KeyboardHandler, Keysym, Modifiers, RawModifiers};
+use smithay_client_toolkit::seat::keyboard::{
+    KeyEvent, KeyboardHandler, Keysym, Modifiers, RawModifiers,
+};
 use smithay_client_toolkit::shell::WaylandSurface;
 use wayland_client::protocol::{wl_keyboard, wl_surface};
 use wayland_client::{Connection, QueueHandle};

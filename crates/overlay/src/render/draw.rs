@@ -15,7 +15,9 @@ impl App {
         let selection_changed = self.selection.changed();
 
         if !first_draw && !selection_changed {
-            self.layer.wl_surface().frame(qh, FrameCallbackData(self.layer.wl_surface().clone()));
+            self.layer
+                .wl_surface()
+                .frame(qh, FrameCallbackData(self.layer.wl_surface().clone()));
             self.layer.commit();
             return;
         }
@@ -31,7 +33,9 @@ impl App {
             self.renderer.pixmap = Some(Pixmap::new(width, height).expect("non-zero surface size"));
         }
         let pixmap = self.renderer.pixmap.as_mut().unwrap();
-        pixmap.data_mut().copy_from_slice(self.renderer.dimmed.as_ref().unwrap().data());
+        pixmap
+            .data_mut()
+            .copy_from_slice(self.renderer.dimmed.as_ref().unwrap().data());
 
         let selection_rect = self.selection.rect();
         let prev_rect = self.selection.prev_rect();
@@ -44,19 +48,35 @@ impl App {
             let border = PathBuilder::from_rect(rect);
             let mut paint = Paint::default();
             paint.set_color(self.config.rect_color);
-            let stroke = Stroke { width: 2.0, ..Default::default() };
+            let stroke = Stroke {
+                width: 2.0,
+                ..Default::default()
+            };
             pixmap.stroke_path(&border, &paint, &stroke, Transform::identity(), None);
         }
 
-        let pool = self.renderer.pool.as_mut().expect("pool is created on first configure");
+        let pool = self
+            .renderer
+            .pool
+            .as_mut()
+            .expect("pool is created on first configure");
         let (buffer, canvas) = pool
-            .create_buffer(width as i32, height as i32, stride, wl_shm::Format::Argb8888)
+            .create_buffer(
+                width as i32,
+                height as i32,
+                stride,
+                wl_shm::Format::Argb8888,
+            )
             .expect("create buffer");
 
         // RGBA -> BGRA byte order
-        for (dst, src) in canvas.chunks_exact_mut(4).zip(pixmap.data().chunks_exact(4)) {
+        for (dst, src) in canvas
+            .chunks_exact_mut(4)
+            .zip(pixmap.data().chunks_exact(4))
+        {
             let word = u32::from_ne_bytes([src[0], src[1], src[2], src[3]]);
-            let swapped = (word & 0xFF00FF00) | ((word & 0x0000_00FF) << 16) | ((word >> 16) & 0x0000_00FF);
+            let swapped =
+                (word & 0xFF00FF00) | ((word & 0x0000_00FF) << 16) | ((word >> 16) & 0x0000_00FF);
             dst.copy_from_slice(&swapped.to_ne_bytes());
         }
 
@@ -65,12 +85,18 @@ impl App {
                 self.layer.wl_surface().damage_buffer(x, y, w, h);
             }
             _ => {
-                self.layer.wl_surface().damage_buffer(0, 0, width as i32, height as i32);
+                self.layer
+                    .wl_surface()
+                    .damage_buffer(0, 0, width as i32, height as i32);
             }
         }
-        self.layer.wl_surface().frame(qh, FrameCallbackData(self.layer.wl_surface().clone()));
+        self.layer
+            .wl_surface()
+            .frame(qh, FrameCallbackData(self.layer.wl_surface().clone()));
 
-        buffer.attach_to(self.layer.wl_surface()).expect("buffer attach");
+        buffer
+            .attach_to(self.layer.wl_surface())
+            .expect("buffer attach");
         self.layer.commit();
 
         self.selection.mark_drawn();
@@ -91,15 +117,26 @@ fn undim_rect(pixmap: &mut Pixmap, screenshot_rgba: &[u8], rect: Rect, width: u3
     let dst = pixmap.data_mut();
     for y in y0..y1 {
         let row_start = y * stride + x0 * 4;
-        dst[row_start..row_start + row_bytes].copy_from_slice(&screenshot_rgba[row_start..row_start + row_bytes]);
+        dst[row_start..row_start + row_bytes]
+            .copy_from_slice(&screenshot_rgba[row_start..row_start + row_bytes]);
     }
 }
 
-fn damage_bounds(a: Option<Rect>, b: Option<Rect>, width: u32, height: u32) -> Option<(i32, i32, i32, i32)> {
+fn damage_bounds(
+    a: Option<Rect>,
+    b: Option<Rect>,
+    width: u32,
+    height: u32,
+) -> Option<(i32, i32, i32, i32)> {
     const STROKE_PAD: f32 = 3.0;
 
     let expand = |r: Rect| {
-        (r.left() - STROKE_PAD, r.top() - STROKE_PAD, r.right() + STROKE_PAD, r.bottom() + STROKE_PAD)
+        (
+            r.left() - STROKE_PAD,
+            r.top() - STROKE_PAD,
+            r.right() + STROKE_PAD,
+            r.bottom() + STROKE_PAD,
+        )
     };
 
     let (l, t, r, b) = match (a, b) {

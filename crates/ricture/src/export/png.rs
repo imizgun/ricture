@@ -11,7 +11,10 @@ pub(crate) fn encode_png(screenshot: &Screenshot) -> Result<Vec<u8>, Box<dyn std
     Ok(bytes)
 }
 
-pub(crate) fn save_png(screenshot: &Screenshot, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn save_png(
+    screenshot: &Screenshot,
+    path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::write(path, encode_png(screenshot)?)?;
     Ok(())
 }

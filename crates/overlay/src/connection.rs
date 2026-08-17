@@ -13,8 +13,11 @@ use wayland_client::globals::registry_queue_init;
 
 pub fn run(
     screenshot: ricture_capture::Screenshot,
-    config: AppConfig
-) -> Result<Option<(Action, (f64, f64, f64, f64), ricture_capture::Screenshot)>, Box<dyn std::error::Error>> {
+    config: AppConfig,
+) -> Result<
+    Option<(Action, (f64, f64, f64, f64), ricture_capture::Screenshot)>,
+    Box<dyn std::error::Error>,
+> {
     let conn = Connection::connect_to_env()?;
     let (globals, mut event_queue) = registry_queue_init(&conn)?;
     let qh = event_queue.handle();
@@ -25,7 +28,13 @@ pub fn run(
 
     let surface = compositor.create_surface(&qh);
 
-    let layer = layer_shell.create_layer_surface(&qh, surface, Layer::Overlay, Some("ricture-overlay"), None);
+    let layer = layer_shell.create_layer_surface(
+        &qh,
+        surface,
+        Layer::Overlay,
+        Some("ricture-overlay"),
+        None,
+    );
 
     layer.set_anchor(Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT);
     layer.set_exclusive_zone(-1);
@@ -37,6 +46,7 @@ pub fn run(
         registry_state: RegistryState::new(&globals),
         seat_state: SeatState::new(&globals, &qh),
         output_state: OutputState::new(&globals, &qh),
+        compositor,
         shm,
 
         exit_flag: None,
@@ -68,7 +78,10 @@ pub fn run(
                 Some(ExitFlag::Save) => Action::Save,
                 _ => unreachable!(),
             };
-            let rect = app.selection.normalized().expect("confirmed selection must have both endpoints");
+            let rect = app
+                .selection
+                .normalized()
+                .expect("confirmed selection must have both endpoints");
             Ok(Some((action, rect, app.screenshot)))
         }
         Some(ExitFlag::Cancelled) | None => Ok(None),

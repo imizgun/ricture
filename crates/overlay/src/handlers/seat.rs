@@ -1,4 +1,5 @@
 use crate::state::App;
+use smithay_client_toolkit::seat::pointer::ThemeSpec;
 use smithay_client_toolkit::seat::{Capability, SeatHandler, SeatState};
 use wayland_client::protocol::wl_seat;
 use wayland_client::{Connection, QueueHandle};
@@ -18,11 +19,26 @@ impl SeatHandler for App {
         capability: Capability,
     ) {
         if capability == Capability::Keyboard && self.keyboard.is_none() {
-            self.keyboard = Some(self.seat_state.get_keyboard(qh, &seat, None).expect("failed to create keyboard"));
+            self.keyboard = Some(
+                self.seat_state
+                    .get_keyboard(qh, &seat, None)
+                    .expect("failed to create keyboard"),
+            );
         }
 
         if capability == Capability::Pointer && self.pointer.is_none() {
-            self.pointer = Some(self.seat_state.get_pointer(qh, &seat).expect("failed to create pointer"));
+            let cursor_surface = self.compositor.create_surface(qh);
+            self.pointer = Some(
+                self.seat_state
+                    .get_pointer_with_theme::<App, ()>(
+                        qh,
+                        &seat,
+                        self.shm.wl_shm(),
+                        cursor_surface,
+                        ThemeSpec::System,
+                    )
+                    .expect("failed to create pointer"),
+            );
         }
     }
 
@@ -40,11 +56,10 @@ impl SeatHandler for App {
         }
 
         if capability == Capability::Pointer {
-            if let Some(pointer) = self.pointer.take() {
-                pointer.release();
-            }
+            self.pointer = None;
         }
     }
 
-    fn remove_seat(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: wl_seat::WlSeat) {}
+    fn remove_seat(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: wl_seat::WlSeat) {
+    }
 }

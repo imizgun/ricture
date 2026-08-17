@@ -1,5 +1,7 @@
 use crate::state::App;
-use smithay_client_toolkit::seat::pointer::{PointerEvent, PointerEventKind, PointerHandler};
+use smithay_client_toolkit::seat::pointer::{
+    CursorIcon, PointerEvent, PointerEventKind, PointerHandler,
+};
 use smithay_client_toolkit::shell::WaylandSurface;
 use wayland_client::protocol::wl_pointer;
 use wayland_client::{Connection, QueueHandle};
@@ -7,7 +9,7 @@ use wayland_client::{Connection, QueueHandle};
 impl PointerHandler for App {
     fn pointer_frame(
         &mut self,
-        _conn: &Connection,
+        conn: &Connection,
         _qh: &QueueHandle<Self>,
         _pointer: &wl_pointer::WlPointer,
         events: &[PointerEvent],
@@ -19,7 +21,12 @@ impl PointerHandler for App {
             }
 
             match event.kind {
-                Enter { .. } | Leave { .. } | Axis { .. } => {}
+                Enter { .. } => {
+                    if let Some(pointer) = &self.pointer {
+                        let _ = pointer.set_cursor(conn, CursorIcon::Crosshair);
+                    }
+                }
+                Leave { .. } | Axis { .. } => {}
 
                 Motion { .. } => {
                     if self.selection.is_dragging {

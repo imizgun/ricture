@@ -11,5 +11,9 @@ pub(crate) fn crop(screenshot: &Screenshot, x: u32, y: u32, width: u32, height: 
         rgba.extend_from_slice(&screenshot.rgba[src_offset..src_offset + row_bytes]);
     }
 
-    Screenshot { width, height, rgba }
+    Screenshot {
+        width,
+        height,
+        rgba,
+    }
 }

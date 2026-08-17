@@ -6,9 +6,16 @@ use std::process::{Command, Stdio};
 // keep this process alive after the overlay closes to answer `Send`
 // requests, which is a bigger lifecycle change than just this function.
 pub(crate) fn copy_to_clipboard(png: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    let mut child =
-        Command::new("wl-copy").arg("--type").arg("image/png").stdin(Stdio::piped()).spawn()?;
-    child.stdin.take().expect("stdin was piped").write_all(png)?;
+    let mut child = Command::new("wl-copy")
+        .arg("--type")
+        .arg("image/png")
+        .stdin(Stdio::piped())
+        .spawn()?;
+    child
+        .stdin
+        .take()
+        .expect("stdin was piped")
+        .write_all(png)?;
     child.wait()?;
     Ok(())
 }

@@ -3,17 +3,20 @@ use crate::render::renderer::Renderer;
 use crate::state::config::AppConfig;
 use crate::state::exit_flag::ExitFlag;
 use ricture_capture::Screenshot;
+use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;
 use smithay_client_toolkit::registry::RegistryState;
 use smithay_client_toolkit::seat::SeatState;
+use smithay_client_toolkit::seat::pointer::ThemedPointer;
 use smithay_client_toolkit::shell::wlr_layer::LayerSurface;
 use smithay_client_toolkit::shm::Shm;
-use wayland_client::protocol::{wl_keyboard, wl_pointer};
+use wayland_client::protocol::wl_keyboard;
 
 pub(crate) struct App {
     pub(crate) registry_state: RegistryState,
     pub(crate) seat_state: SeatState,
     pub(crate) output_state: OutputState,
+    pub(crate) compositor: CompositorState,
     pub(crate) shm: Shm,
 
     pub(crate) exit_flag: Option<ExitFlag>,
@@ -25,7 +28,7 @@ pub(crate) struct App {
     pub(crate) keyboard: Option<wl_keyboard::WlKeyboard>,
     pub(crate) keyboard_focus: bool,
     pub(crate) ctrl_held: bool,
-    pub(crate) pointer: Option<wl_pointer::WlPointer>,
+    pub(crate) pointer: Option<ThemedPointer>,
 
     pub(crate) screenshot: Screenshot,
     pub(crate) renderer: Renderer,

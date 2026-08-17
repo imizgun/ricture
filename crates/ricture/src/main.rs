@@ -1,6 +1,7 @@
 mod crop;
 mod export;
 
+use chrono::Utc;
 use crop::crop;
 use export::clipboard::copy_to_clipboard;
 use export::png::{encode_png, save_png};
@@ -8,17 +9,25 @@ use ricture_config::config::Config;
 use ricture_config::validate::Validate;
 use ricture_overlay::{Action, state};
 use std::path::PathBuf;
-use chrono::Utc;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::load()?;
     config.validate()?;
-    let save_path = PathBuf::from(format!("{}/{}.png", &config.general.save_path, Utc::now().format("%Y-%m-%d_%H-%M-%S")).to_string());
+    let save_path = PathBuf::from(
+        format!(
+            "{}/{}.png",
+            &config.general.save_path,
+            Utc::now().format("%Y-%m-%d_%H-%M-%S")
+        )
+        .to_string(),
+    );
     let app_config = state::AppConfig::from(config);
 
     let screenshot = ricture_capture::capture_first_output()?;
 
-    let Some((action, (x, y, width, height), screenshot)) = ricture_overlay::run(screenshot, app_config)? else {
+    let Some((action, (x, y, width, height), screenshot)) =
+        ricture_overlay::run(screenshot, app_config)?
+    else {
         return Ok(());
     };
 
@@ -39,8 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // TODO:
-// 1. пофиксить, что при русской раскладке не работают бинды + добавить пробел 
-// 2. курсор в виде креста 
-// 3. `--fullscreen` flag
+// 1. курсор в виде креста
+// 2. `--fullscreen` flag
 // 4. macros (?) for config validation
-// 5. native clipboard support 
+// 5. native clipboard support

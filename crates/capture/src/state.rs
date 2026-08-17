@@ -1,8 +1,8 @@
 use memmap2::MmapMut;
+use wayland_client::WEnum;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_output::WlOutput;
 use wayland_client::protocol::wl_shm::{Format, WlShm};
-use wayland_client::WEnum;
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 
 #[derive(Default)]

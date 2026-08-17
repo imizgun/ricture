@@ -14,12 +14,19 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppState {
         _conn: &Connection,
         qh: &QueueHandle<Self>,
     ) {
-        let Event::Global { name, interface, version } = event else {
+        let Event::Global {
+            name,
+            interface,
+            version,
+        } = event
+        else {
             return;
         };
         if interface == WlOutput::interface().name {
             let version = version.min(WlOutput::interface().version);
-            state.outputs.push(registry.bind::<WlOutput, _, _>(name, version, qh, ()));
+            state
+                .outputs
+                .push(registry.bind::<WlOutput, _, _>(name, version, qh, ()));
         } else if interface == WlShm::interface().name {
             let version = version.min(WlShm::interface().version);
             state.shm = Some(registry.bind::<WlShm, _, _>(name, version, qh, ()));

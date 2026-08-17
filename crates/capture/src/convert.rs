@@ -3,7 +3,10 @@ use wayland_client::protocol::wl_shm::Format;
 
 /// Converts a wl_shm `Argb8888`/`Xrgb8888` frame (B,G,R,A/X byte order in
 /// memory) into a plain RGBA8 `Screenshot`.
-pub(crate) fn to_rgba(buffer: &Buffer, pixels: &[u8]) -> Result<Screenshot, Box<dyn std::error::Error>> {
+pub(crate) fn to_rgba(
+    buffer: &Buffer,
+    pixels: &[u8],
+) -> Result<Screenshot, Box<dyn std::error::Error>> {
     let format = buffer.format.into_result()?;
     let width = buffer.width as usize;
     let height = buffer.height as usize;
@@ -24,5 +27,9 @@ pub(crate) fn to_rgba(buffer: &Buffer, pixels: &[u8]) -> Result<Screenshot, Box<
         }
     }
 
-    Ok(Screenshot { width: buffer.width as u32, height: buffer.height as u32, rgba })
+    Ok(Screenshot {
+        width: buffer.width as u32,
+        height: buffer.height as u32,
+        rgba,
+    })
 }

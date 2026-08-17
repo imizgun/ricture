@@ -33,7 +33,12 @@ impl Selection {
         let (Some((x0, y0)), Some((x1, y1))) = (start, current) else {
             return None;
         };
-        Rect::from_ltrb(x0.min(x1) as f32, y0.min(y1) as f32, x0.max(x1) as f32, y0.max(y1) as f32)
+        Rect::from_ltrb(
+            x0.min(x1) as f32,
+            y0.min(y1) as f32,
+            x0.max(x1) as f32,
+            y0.max(y1) as f32,
+        )
     }
 
     pub(crate) fn normalized(&self) -> Option<(f64, f64, f64, f64)> {
