@@ -39,6 +39,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // TODO:
-// 1. macros (?) for config validation
-// 2. native clipboard support
-// 3. 
+// 1. пофиксить, что при русской раскладке не работают бинды + добавить пробел 
+// 2. курсор в виде креста 
+// 3. `--fullscreen` flag
+// 4. macros (?) for config validation
+// 5. native clipboard support 

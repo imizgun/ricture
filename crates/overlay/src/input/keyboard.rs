@@ -4,6 +4,9 @@ use smithay_client_toolkit::shell::WaylandSurface;
 use wayland_client::protocol::{wl_keyboard, wl_surface};
 use wayland_client::{Connection, QueueHandle};
 
+const KEY_C: u32 = 46;
+const KEY_S: u32 = 31;
+
 impl KeyboardHandler for App {
     fn enter(
         &mut self,
@@ -43,9 +46,9 @@ impl KeyboardHandler for App {
     ) {
         match event.keysym {
             Keysym::Escape => self.exit_flag = Some(ExitFlag::Cancelled),
-            Keysym::Return => self.exit_flag = Some(ExitFlag::Copy),
-            Keysym::c if self.ctrl_held => self.exit_flag = Some(ExitFlag::Copy),
-            Keysym::s if self.ctrl_held => self.exit_flag = Some(ExitFlag::Save),
+            Keysym::Return | Keysym::space => self.exit_flag = Some(ExitFlag::Copy),
+            _ if self.ctrl_held && event.raw_code == KEY_C => self.exit_flag = Some(ExitFlag::Copy),
+            _ if self.ctrl_held && event.raw_code == KEY_S => self.exit_flag = Some(ExitFlag::Save),
             _ => {}
         }
     }
