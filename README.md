@@ -21,8 +21,18 @@ Use `--release` — the overlay redraws itself continuously while open, and an u
 ```sh
 cargo run --release
 ```
+or (for instant fullscreen shot):
+```sh
+cargo run --release -- --fullscreen 
+```
 
 Drag a rectangle, hit `Enter` to save it to `screenshot.png` in the current directory, or `Esc` to cancel.
+
+## Keybind
+| Key | Action |
+|-----|--------|
+| `Ctrl + C` / `Enter` / `Space` |   Copy selected area to clipboard     |
+| `Ctrl + S` |   Save selected to `.png` in ~/Pictures/Screenshots directory     |
 
 ## Layout
 
