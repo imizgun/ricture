@@ -65,10 +65,6 @@ impl From<Config> for AppConfig {
 fn parse_rrggbbaa(hex: &str) -> Color {
     let hex = hex.trim_start_matches('#');
     let value = u32::from_str_radix(hex, 16).expect("hex color validated by ricture-config");
-    Color::from_rgba8(
-        ((value >> 24) & 0xff) as u8,
-        ((value >> 16) & 0xff) as u8,
-        ((value >> 8) & 0xff) as u8,
-        (value & 0xff) as u8,
-    )
+    let (rgb, a) = if hex.len() == 6 { (value, 0xff) } else { (value >> 8, value & 0xff) };
+    Color::from_rgba8(((rgb >> 16) & 0xff) as u8, ((rgb >> 8) & 0xff) as u8, (rgb & 0xff) as u8, a as u8)
 }

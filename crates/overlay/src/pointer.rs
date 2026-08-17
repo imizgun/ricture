@@ -28,6 +28,7 @@ impl PointerHandler for App {
                 }
                 Press { .. } => {
                     self.selection.start = Some(event.position);
+                    self.selection.current = Some(event.position);
                     self.selection.is_dragging = true;
                 }
                 Release { .. } => {
