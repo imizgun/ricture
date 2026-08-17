@@ -1,10 +1,13 @@
-use ricture_capture::Screenshot;
+mod crop;
+mod export;
+
+use crop::crop;
+use export::clipboard::copy_to_clipboard;
+use export::png::{encode_png, save_png};
 use ricture_config::config::Config;
 use ricture_config::validate::Validate;
 use ricture_overlay::{Action, state};
-use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 use chrono::Utc;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,36 +26,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match action {
         Action::Save => {
-            ricture_capture::save_png(&cropped, &save_path)?;
+            save_png(&cropped, &save_path)?;
             println!("saved {}", save_path.display());
         }
         Action::Copy => {
-            copy_to_clipboard(&ricture_capture::encode_png(&cropped)?)?;
+            copy_to_clipboard(&encode_png(&cropped)?)?;
             println!("copied screenshot to clipboard");
         }
     }
 
     Ok(())
-}
-
-fn copy_to_clipboard(png: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    let mut child =
-        Command::new("wl-copy").arg("--type").arg("image/png").stdin(Stdio::piped()).spawn()?;
-    child.stdin.take().expect("stdin was piped").write_all(png)?;
-    child.wait()?;
-    Ok(())
-}
-
-fn crop(screenshot: &Screenshot, x: u32, y: u32, width: u32, height: u32) -> Screenshot {
-    let src_stride = screenshot.width as usize * 4;
-    let row_bytes = width as usize * 4;
-
-    let mut rgba = Vec::with_capacity(row_bytes * height as usize);
-
-    for row in 0..height as usize {
-        let src_offset = (y as usize + row) * src_stride + x as usize * 4;
-        rgba.extend_from_slice(&screenshot.rgba[src_offset..src_offset + row_bytes]);
-    }
-
-    Screenshot { width, height, rgba }
 }

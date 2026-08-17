@@ -38,7 +38,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppState {
             }
             Event::BufferDone => {
                 let state_buf = state.buffer.as_ref().unwrap();
-                let buf = crate::shm::create_shm_buffer(state.shm.as_ref().unwrap(), qhandle, state_buf.width,
+                let buf = crate::wayland::shm::create_shm_buffer(state.shm.as_ref().unwrap(), qhandle, state_buf.width,
                                                         state_buf.height, state_buf.stride, state_buf.format).unwrap();
                 proxy.copy(&buf.0);
                 state.wl_buffer = Some(buf.0);
@@ -53,7 +53,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppState {
 }
 
 pub fn capture_first_output() -> Result<crate::state::Screenshot, Box<dyn std::error::Error>> {
-    let (_conn, mut eq, mut state) = crate::connection::connect()?;
+    let (_conn, mut eq, mut state) = crate::wayland::connection::connect()?;
     let qh = eq.handle();
     let _frame = state
         .screencopy_manager
@@ -67,5 +67,5 @@ pub fn capture_first_output() -> Result<crate::state::Screenshot, Box<dyn std::e
 
     let buffer = state.buffer.as_ref().unwrap();
     let mmap = state.mmap_mut.as_ref().unwrap();
-    crate::export::to_rgba(buffer, mmap)
+    crate::convert::to_rgba(buffer, mmap)
 }

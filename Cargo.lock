@@ -452,6 +452,7 @@ name = "ricture"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "png",
  "ricture-capture",
  "ricture-config",
  "ricture-overlay",
@@ -462,7 +463,6 @@ name = "ricture-capture"
 version = "0.1.0"
 dependencies = [
  "memmap2",
- "png",
  "rustix",
  "wayland-client",
  "wayland-protocols-wlr",

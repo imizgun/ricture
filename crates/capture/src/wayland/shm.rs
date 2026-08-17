@@ -7,11 +7,7 @@ use wayland_client::protocol::wl_shm_pool::{self, WlShmPool};
 use wayland_client::{Connection, Dispatch, QueueHandle, WEnum};
 
 /// Allocates an anonymous shm-backed `wl_buffer` of the given geometry and
-/// hands back the buffer proxy plus a writable mapping of its memory.
-///
-/// `stride` and `format` should come straight from whatever advertised them
-/// (e.g. a screencopy frame's `buffer` event) rather than being recomputed
-/// here, since the compositor is the source of truth for both.
+/// hands back the buffer proxy plus a writable mapping of its memory
 pub(crate) fn create_shm_buffer(
     shm: &WlShm,
     qh: &QueueHandle<AppState>,
@@ -45,9 +41,6 @@ impl Dispatch<WlShm, ()> for AppState {
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
-        // wl_shm::Event::Format — advertises a supported pixel format.
-        // Not needed yet: we ask for a format ourselves once we know what
-        // the screencopy frame supports.
     }
 }
 
@@ -77,8 +70,5 @@ impl Dispatch<WlBuffer, ()> for AppState {
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
-        // wl_buffer::Event::Release — compositor is done reading this
-        // buffer and it's safe to reuse/free. We only ever capture once
-        // and drop everything, so there's nothing to do here yet.
     }
 }

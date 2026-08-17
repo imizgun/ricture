@@ -8,4 +8,3 @@ wayland-client = "0.31"
 wayland-protocols-wlr = { version = "0.3", features = ["client"] }
 memmap2 = "0.9"
 rustix = { version = "1", features = ["fs"] }
-png = "0.18"

@@ -1,5 +1,5 @@
-use crate::renderer::Renderer;
-use crate::selection::Selection;
+use crate::input::selection::Selection;
+use crate::render::renderer::Renderer;
 use crate::state::{Action, App, AppConfig, ExitFlag};
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;

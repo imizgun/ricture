@@ -8,3 +8,4 @@ ricture-capture = { path = "../capture" }
 ricture-overlay = { path = "../overlay" }
 ricture-config = {path = "../config" }
 chrono = "0.4.45"
+png = "0.18"

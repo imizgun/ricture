@@ -2,8 +2,6 @@ use crate::state::AppState;
 use wayland_client::{Connection, EventQueue};
 
 /// Connects, walks the registry and gives back the live connection + queue
-/// plus an `AppState` with `outputs` / `shm` / `screencopy_manager` already
-/// bound and ready to use.
 pub(crate) fn connect() -> Result<(Connection, EventQueue<AppState>, AppState), Box<dyn std::error::Error>> {
     let conn = Connection::connect_to_env()?;
     let mut event_queue = conn.new_event_queue::<AppState>();
