@@ -2,13 +2,27 @@
 
 A small screenshot tool for Wayland, written in Rust. Inspired by [Spectacle](https://apps.kde.org/spectacle/) and [MarkShot](https://github.com/jswysnemc/mark-shot).
 
-No GTK/Qt — the overlay is a raw `wlr-layer-shell` surface rendered in software with [`tiny-skia`](https://github.com/RazrFalcon/tiny-skia).
+No GTK/Qt — the overlay is a raw `wlr-layer-shell` surface rendered in software with [`tiny-skia`](https://github.com/RazrFalcon/tiny-skia), UI renders with [`Slint`](https://github.com/slint-ui/slint)
+
+## Features
+- [x] Area and fullscreen screenshots
+- [x] Notification via [`rustbus`](https://github.com/KillingSpark/rustbus)
+- [ ] Animation on startup
+- [ ] Annotation tools:
+- - [ ] Brush
+- - [ ] Arrow
+- - [ ] Line
+- - [ ] Primitive shapes
+- - [ ] Text
+- - [ ] Blur
+
 
 ## Building
 
 This project depends on `libxkbcommon` at build time (via `smithay-client-toolkit`), which needs `pkg-config` to be found. A [Nix flake](./flake.nix) is included with a dev shell that provides it:
 
 ```sh
+nix develop
 cargo build --release
 ```
 
@@ -37,6 +51,19 @@ Drag a rectangle, hit `Enter` to save it to `screenshot.png` in the current dire
 |-----|--------|
 | `Ctrl + C` / `Enter` / `Space` |   Copy selected area to clipboard     |
 | `Ctrl + S` |   Save selected to `.png` in ~/Pictures/Screenshots directory     |
+
+## Config
+`ricture` uses a TOML config file located at `~/.config/ricture/config.toml` (expample [`here`](https://github.com/imizgun/ricture/blob/main/examples/config.toml)):
+```toml
+[general]
+save_path = "/home/user/Pictures/Screenshots"
+enable_notifications = true
+
+[appearance]
+rect_color = "#ffffff" # '#rrggbbaa' is also valid
+```
+
+
 
 ## Layout
 

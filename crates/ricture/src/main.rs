@@ -8,10 +8,28 @@ use ricture_export::png::{encode_png, save_png};
 use ricture_config::config::Config;
 use ricture_config::validate::Validate;
 use ricture_overlay::{Action, state};
+use std::error::Error;
 use std::path::PathBuf;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>>{
+    let config = Config::load()?;
+    config.validate()?;
+    
+    let is_notification_enabled = config.general.enable_notifications;
+    
+    if let Err(err) = run(config) {
+        eprintln!("error: {err}");
 
+        if is_notification_enabled {
+            ricture_notify::notify("ricture failed", &err.to_string());
+        }
+        
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
+fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let args = std::env::args().collect::<Vec<_>>();
     let screenshot: Screenshot;
     
@@ -24,10 +42,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     }
-    
-    let config = Config::load()?;
-    config.validate()?;
-    
     let save_path = PathBuf::from(
         format!(
             "{}/{}.png",
@@ -36,6 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .to_string(),
     );
+    let notify_enabled = config.general.enable_notifications;    
     
     let app_config = state::AppConfig::from(config);
 
@@ -51,18 +66,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Action::Save => {
             save_png(&cropped, &save_path)?;
             println!("saved {}", save_path.display());
+            if notify_enabled {
+                ricture_notify::notify("Screenshot saved", &save_path.display().to_string());                
+            }
         }
         Action::Copy => {
             copy_to_clipboard(&encode_png(&cropped)?)?;
             println!("copied screenshot to clipboard");
+
+            if notify_enabled {
+                ricture_notify::notify("Screenshot copied", "Image copied to clipboard");
+            }
         }
     }
-
-    // notify_rust::Notification::new()
-    //     .summary("Screenshot saved")
-    //     .body(&save_path.display().to_string())
-    //     .show()
-    //     .unwrap();
 
     Ok(())
 }

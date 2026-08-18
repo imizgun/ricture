@@ -8,6 +8,8 @@ static RECT_COLOR_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^#[0-9a-f]{6}([0-9a-f]{2})?$").unwrap());
 
 #[derive(Deserialize, Serialize, Validate)]
+#[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     #[validate(nested)]
     pub general: ConfigGeneral,
@@ -16,14 +18,20 @@ pub struct Config {
 }
 
 #[derive(Deserialize, Serialize, Validate)]
+#[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigGeneral {
     #[validate(custom(function = "validate_save_path"))]
     pub save_path: String,
+
+    pub enable_notifications: bool
 }
 
 const DEFAULT_RECT_COLOR: &'static str = "#ffffff";
 
 #[derive(Deserialize, Serialize, Validate)]
+#[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigAppearance {
     #[validate(regex(
         path = *RECT_COLOR_RE,
@@ -52,6 +60,7 @@ impl Default for ConfigGeneral {
         let home = std::env::var("HOME").unwrap_or_default();
         ConfigGeneral {
             save_path: format!("{home}/Pictures/Screenshots"),
+            enable_notifications: true
         }
     }
 }

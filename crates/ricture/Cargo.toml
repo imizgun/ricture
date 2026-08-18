@@ -8,5 +8,5 @@ ricture-capture = { path = "../capture" }
 ricture-overlay = { path = "../overlay" }
 ricture-config = {path = "../config" }
 ricture-export = { path = "../export" }
+ricture-notify = { path = "../notify" }
 chrono = "0.4.45"
-notify-rust = "4.18.0"

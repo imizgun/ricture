@@ -28,10 +28,10 @@ pub fn copy_to_clipboard(png: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    // Child: detached from the terminal, keep serving Send/Cancelled until selection ownership moves on.
+    // child: detached from the terminal, keep serving Send/Cancelled until selection ownership moves on.
     while !state.done {
         eq.blocking_dispatch(&mut state)?;
     }
 
-    Ok(())
+    std::process::exit(0);
 }

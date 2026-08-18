@@ -1,0 +1,7 @@
+[package]
+name = "ricture-notify"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rustbus = "0.19.3"

@@ -1,5 +1,6 @@
 [general]
 save_path = "/home/user/Pictures/Screenshots"
+enable_notifications = true
 
 [appearance]
-rect_color = "#ffffff"
+rect_color = "#ffffff" # '#rrggbbaa' is also valid
