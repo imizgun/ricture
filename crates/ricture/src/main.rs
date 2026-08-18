@@ -1,11 +1,10 @@
 mod crop;
-mod export;
 
 use chrono::Utc;
 use crop::crop;
-use export::clipboard::copy_to_clipboard;
-use export::png::{encode_png, save_png};
 use ricture_capture::Screenshot;
+use ricture_export::clipboard::copy_to_clipboard;
+use ricture_export::png::{encode_png, save_png};
 use ricture_config::config::Config;
 use ricture_config::validate::Validate;
 use ricture_overlay::{Action, state};
@@ -20,7 +19,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // if fullscreen, do only this
     if args.len() > 1 {
-        println!("{:?}", args);
         if args[1] == "--fullscreen" {
             copy_to_clipboard(&encode_png(&screenshot)?)?;
             return Ok(());
@@ -60,8 +58,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // notify_rust::Notification::new()
+    //     .summary("Screenshot saved")
+    //     .body(&save_path.display().to_string())
+    //     .show()
+    //     .unwrap();
+
     Ok(())
 }
-
-// TODO:
-// 5. native clipboard support

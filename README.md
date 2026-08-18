@@ -9,7 +9,7 @@ No GTK/Qt — the overlay is a raw `wlr-layer-shell` surface rendered in softwar
 This project depends on `libxkbcommon` at build time (via `smithay-client-toolkit`), which needs `pkg-config` to be found. A [Nix flake](./flake.nix) is included with a dev shell that provides it:
 
 ```sh
-nix develop --command cargo build --release
+cargo build --release
 ```
 
 Without Nix, just make sure `pkg-config` and `libxkbcommon`'s dev headers are installed and `cargo build --release` should work directly.
