@@ -71,6 +71,9 @@ A Cargo workspace, one crate per concern:
 
 - `crates/capture` (`ricture-capture`) — pure Wayland screen capture. No UI, no rendering; just talks to `wlr-screencopy` and hands back raw RGBA pixels.
 - `crates/overlay` (`ricture-overlay`) — the interactive part: the layer-shell surface, input handling, and `tiny-skia` rendering. This is also where annotation tools will eventually live.
+- `crates/config` (`ricture-config`) — TOML config parsing and validation.
+- `crates/export` (`ricture-export`) — PNG saving and clipboard copying.
+- `crates/notify` (`ricture-notify`) — desktop notifications.
 - `crates/ricture` (`ricture`, the binary) — thin entry point that wires the other two together and does the final crop + save.
 
 ## License
