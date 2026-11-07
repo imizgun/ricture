@@ -11,6 +11,7 @@ pub(crate) struct AppState {
     pub(crate) shm: Option<WlShm>,
     pub(crate) screencopy_manager: Option<ZwlrScreencopyManagerV1>,
     pub(crate) capture_done: bool,
+    pub(crate) capture_failed: bool,
     pub(crate) buffer: Option<Buffer>,
     pub(crate) wl_buffer: Option<WlBuffer>,
     pub(crate) mmap_mut: Option<MmapMut>,

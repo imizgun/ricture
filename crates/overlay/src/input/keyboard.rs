@@ -46,6 +46,10 @@ impl KeyboardHandler for App {
         _serial: u32,
         event: KeyEvent,
     ) {
+        if !self.keyboard_focus {
+            return;
+        }
+
         match event.keysym {
             Keysym::Escape => self.exit_flag = Some(ExitFlag::Cancelled),
             Keysym::Return | Keysym::space => self.exit_flag = Some(ExitFlag::Copy),

@@ -7,8 +7,10 @@ use wayland_client::protocol::wl_shm;
 
 impl App {
     pub(crate) fn draw(&mut self, qh: &QueueHandle<Self>) {
-        let width = self.width;
-        let height = self.height;
+        // Draw in screenshot (physical) pixels; the viewport maps this buffer
+        // onto the logical surface size.
+        let width = self.screenshot.width;
+        let height = self.screenshot.height;
         let stride = width as i32 * 4;
 
         let first_draw = self.renderer.pixmap.is_none();

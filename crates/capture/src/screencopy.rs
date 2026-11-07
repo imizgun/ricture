@@ -64,6 +64,9 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppState {
             Event::Ready { .. } => {
                 state.capture_done = true;
             }
+            Event::Failed => {
+                state.capture_failed = true;
+            }
             _ => {}
         }
     }
@@ -80,6 +83,9 @@ pub fn capture_first_output() -> Result<crate::state::Screenshot, Box<dyn std::e
             .capture_output(0, &state.outputs[0], &qh, ());
 
     while !state.capture_done {
+        if state.capture_failed {
+            return Err("compositor failed to copy the output frame".into());
+        }
         eq.blocking_dispatch(&mut state)?;
     }
 

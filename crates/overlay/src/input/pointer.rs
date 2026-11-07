@@ -20,6 +20,7 @@ impl PointerHandler for App {
                 continue;
             }
 
+            let position = self.to_buffer_coords(event.position);
             match event.kind {
                 Enter { .. } => {
                     if let Some(pointer) = &self.pointer {
@@ -30,16 +31,16 @@ impl PointerHandler for App {
 
                 Motion { .. } => {
                     if self.selection.is_dragging {
-                        self.selection.current = Some(event.position);
+                        self.selection.current = Some(position);
                     }
                 }
                 Press { .. } => {
-                    self.selection.start = Some(event.position);
-                    self.selection.current = Some(event.position);
+                    self.selection.start = Some(position);
+                    self.selection.current = Some(position);
                     self.selection.is_dragging = true;
                 }
                 Release { .. } => {
-                    self.selection.current = Some(event.position);
+                    self.selection.current = Some(position);
                     self.selection.is_dragging = false;
                 }
             }

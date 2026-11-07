@@ -7,6 +7,8 @@ use smithay_client_toolkit::registry::RegistryState;
 use smithay_client_toolkit::seat::SeatState;
 use smithay_client_toolkit::shell::WaylandSurface;
 use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity, Layer, LayerShell};
+use crate::handlers::viewporter::ViewportData;
+use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewporter::WpViewporter;
 use smithay_client_toolkit::shm::Shm;
 use wayland_client::Connection;
 use wayland_client::globals::registry_queue_init;
@@ -27,6 +29,15 @@ pub fn run(
     let shm = Shm::bind(&globals, &qh)?;
 
     let surface = compositor.create_surface(&qh);
+
+    // The screenshot is in physical pixels while the layer surface is sized
+    // in logical ones; with fractional scaling (common on 16:10 laptop
+    // panels) the two differ, so render at full resolution and let the
+    // viewport scale it down to the surface size.
+    let viewport = globals
+        .bind::<WpViewporter, _, _>(&qh, 1..=1, ViewportData)
+        .ok()
+        .map(|viewporter| viewporter.get_viewport(&surface, &qh, ViewportData));
 
     let layer = layer_shell.create_layer_surface(
         &qh,
@@ -53,6 +64,7 @@ pub fn run(
         first_configure: true,
         width: 0,
         height: 0,
+        viewport,
 
         layer,
         keyboard: None,

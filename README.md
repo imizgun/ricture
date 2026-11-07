@@ -14,7 +14,9 @@ No GTK/Qt — the overlay is a raw `wlr-layer-shell` surface rendered in softwar
 - - [ ] Line
 - - [ ] Primitive shapes
 - - [ ] Text
+- - [ ] Numbered circles
 - - [ ] Blur
+- - [ ] Scaler
 
 
 ## Building
