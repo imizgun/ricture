@@ -3296,6 +3296,7 @@ dependencies = [
  "ricture-export",
  "ricture-notify",
  "ricture-overlay",
+ "ricture-tools",
 ]
 
 [[package]]
@@ -3342,11 +3343,19 @@ dependencies = [
  "bytemuck",
  "ricture-capture",
  "ricture-config",
+ "ricture-tools",
  "slint",
  "slint-build",
  "smithay-client-toolkit",
  "tiny-skia",
  "wayland-client",
+]
+
+[[package]]
+name = "ricture-tools"
+version = "0.1.0"
+dependencies = [
+ "tiny-skia",
 ]
 
 [[package]]

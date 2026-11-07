@@ -1,25 +1,18 @@
 // Overlay UI drawn on top of the screenshot. Rendered by Slint's software
 // renderer into an offscreen buffer that the overlay composites over its own
 // tiny-skia frame, so this window is fully transparent apart from its widgets.
-
-export enum Tool {
-    select,
-    brush,
-    arrow,
-    line,
-    rectangle,
-    ellipse,
-    text,
-    counter,
-    blur,
-    scaler,
-}
+//
+// Tools are not known here: Rust fills `tools` from the registered
+// `ricture_tools::Tool`s, and reads `active-tool` / `stroke-*` back.
 
 export struct ToolInfo {
-    tool: Tool,
     name: string,
     // SVG path data on a 24x24 viewbox, stroked.
     icon: string,
+    has-color: bool,
+    has-width: bool,
+    width-min: float,
+    width-max: float,
 }
 
 global Theme {
@@ -31,6 +24,13 @@ global Theme {
     out property <color> on-accent: #ffffff;
     out property <color> frame: #4f8cff99;
     out property <length> radius: 12px;
+}
+
+component Panel inherits Rectangle {
+    background: Theme.panel;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.panel-border;
 }
 
 component Tooltip inherits Rectangle {
@@ -53,7 +53,8 @@ component Tooltip inherits Rectangle {
 }
 
 component ToolButton inherits Rectangle {
-    in property <ToolInfo> info;
+    in property <string> name;
+    in property <string> icon;
     in property <bool> active;
     callback clicked;
 
@@ -68,7 +69,7 @@ component ToolButton inherits Rectangle {
         height: 20px;
         viewbox-width: 24;
         viewbox-height: 24;
-        commands: root.info.icon;
+        commands: root.icon;
         fill: transparent;
         stroke: root.active ? Theme.on-accent : Theme.fg;
         stroke-width: 1.8px;
@@ -79,31 +80,117 @@ component ToolButton inherits Rectangle {
     }
 
     if touch.has-hover: Tooltip {
-        text: root.info.name;
+        text: root.name;
         x: (root.width - self.width) / 2;
         y: -self.height - 12px;
+    }
+}
+
+component Swatch inherits Rectangle {
+    in property <color> value;
+    in property <bool> selected;
+    callback clicked;
+
+    width: 22px;
+    height: 22px;
+    border-radius: self.width / 2;
+    background: root.value;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? Theme.fg : Theme.panel-border;
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// Minimal slider; the std-widgets one would pull in a whole widget style.
+component WidthSlider inherits Rectangle {
+    in-out property <float> value;
+    in property <float> minimum: 0;
+    in property <float> maximum: 1;
+
+    property <length> knob: 14px;
+    property <length> track: root.width - root.knob;
+    property <float> ratio: (root.value - root.minimum) / max(0.0001, root.maximum - root.minimum);
+
+    width: 120px;
+    height: 22px;
+
+    function set-from(px: length) {
+        root.value = round(max(root.minimum, min(root.maximum,
+            root.minimum + (px - root.knob / 2) / root.track * (root.maximum - root.minimum))));
+    }
+
+    Rectangle {
+        x: root.knob / 2;
+        width: root.track;
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.hover;
+    }
+
+    Rectangle {
+        x: root.knob / 2;
+        width: root.track * root.ratio;
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
+
+    Rectangle {
+        x: root.track * root.ratio;
+        width: root.knob;
+        height: root.knob;
+        border-radius: root.knob / 2;
+        background: Theme.fg;
+    }
+
+    TouchArea {
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                root.set-from(self.mouse-x);
+            }
+        }
+        moved => {
+            if (self.pressed) {
+                root.set-from(self.mouse-x);
+            }
+        }
     }
 }
 
 export component OverlayUi inherits Window {
     background: transparent;
 
-    in-out property <Tool> active-tool: Tool.select;
+    in property <[ToolInfo]> tools;
+    // -1 = Select (drag re-selects the area), otherwise an index into `tools`.
+    in-out property <int> active-tool: -1;
+    in-out property <color> stroke-color: #ff3b30;
+    in-out property <float> stroke-width: 4;
 
-    in property <[ToolInfo]> tools: [
-        { tool: Tool.select,    name: "Select",          icon: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" },
-        { tool: Tool.brush,     name: "Brush",           icon: "M4 20c2.5 0 5-.8 6-3.5l8.5-8.5a2.1 2.1 0 0 0-3-3L7 13.5C4.5 14.5 4 17 4 20z" },
-        { tool: Tool.arrow,     name: "Arrow",           icon: "M5 19L19 5M10 5h9v9" },
-        { tool: Tool.line,      name: "Line",            icon: "M5 19L19 5" },
-        { tool: Tool.rectangle, name: "Rectangle",       icon: "M4 6h16v12H4z" },
-        { tool: Tool.ellipse,   name: "Ellipse",         icon: "M3 12a9 6.5 0 1 0 18 0a9 6.5 0 1 0-18 0z" },
-        { tool: Tool.text,      name: "Text",            icon: "M5 7V4h14v3M12 4v16M9 20h6" },
-        { tool: Tool.counter,   name: "Numbered circle", icon: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0zM10.5 9l2-1.5V16.5" },
-        { tool: Tool.blur,      name: "Blur",            icon: "M12 3c4 5 6.5 8 6.5 11.5a6.5 6.5 0 0 1-13 0C5.5 11 8 8 12 3z" },
-        { tool: Tool.scaler,    name: "Scaler",          icon: "M4 10.5a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0zM15.5 15.5L20 20M10.5 8v5M8 10.5h5" },
-    ];
+    // Selected area in logical px. Panels are shown around it once the user
+    // has finished selecting.
+    in property <bool> panels-visible;
+    in property <length> sel-x;
+    in property <length> sel-y;
+    in property <length> sel-w;
+    in property <length> sel-h;
 
-    callback tool-selected(Tool);
+    property <[color]> swatches: [#ff3b30, #ff9500, #ffcc00, #34c759, #0a84ff, #af52de, #ffffff, #000000];
+    property <length> margin: 8px;
+    property <length> gap: 10px;
+
+    // Out-of-range indices (Select) yield a default ToolInfo with no settings.
+    property <ToolInfo> current: root.tools[root.active-tool];
+    property <bool> show-settings: root.current.has-color || root.current.has-width;
+
+    // Place the panel stack below the selection, else above it, else inside
+    // along its bottom edge (for selections covering the whole screen).
+    property <length> stack-height: toolbar.height + (root.show-settings ? root.gap / 2 + settings.height : 0);
+    property <bool> fits-below: root.sel-y + root.sel-h + root.gap + root.stack-height + root.margin <= root.height;
+    property <bool> fits-above: root.sel-y - root.gap - root.stack-height >= root.margin;
+    // Settings go on the side of the toolbar facing away from the selection.
+    property <bool> settings-below: root.fits-below;
 
     // Frame along the screen perimeter.
     Rectangle {
@@ -111,35 +198,90 @@ export component OverlayUi inherits Window {
         border-color: Theme.frame;
     }
 
-    toolbar := Rectangle {
+    toolbar := Panel {
+        visible: root.panels-visible;
         width: row.preferred-width;
         height: row.preferred-height;
-        x: (root.width - self.width) / 2;
-        y: root.height - self.height - 20px;
-        background: Theme.panel;
-        border-radius: Theme.radius;
-        border-width: 1px;
-        border-color: Theme.panel-border;
+        x: max(root.margin, min(root.width - self.width - root.margin,
+            root.sel-x + (root.sel-w - self.width) / 2));
+        y: root.fits-below ? root.sel-y + root.sel-h + root.gap
+            : root.fits-above ? root.sel-y - root.gap - self.height
+            : root.sel-y + root.sel-h - root.gap - self.height;
 
         row := HorizontalLayout {
             padding: 6px;
             spacing: 4px;
 
-            for info in root.tools: ToolButton {
-                info: info;
-                active: info.tool == root.active-tool;
-                clicked => {
-                    root.active-tool = info.tool;
-                    root.tool-selected(info.tool);
+            ToolButton {
+                name: "Select";
+                icon: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5";
+                active: root.active-tool == -1;
+                clicked => { root.active-tool = -1; }
+            }
+
+            Rectangle {
+                width: 1px;
+                background: Theme.panel-border;
+            }
+
+            for info[index] in root.tools: ToolButton {
+                name: info.name;
+                icon: info.icon;
+                active: root.active-tool == index;
+                clicked => { root.active-tool = index; }
+            }
+        }
+    }
+
+    settings := Panel {
+        visible: root.panels-visible && root.show-settings;
+        width: srow.preferred-width;
+        height: srow.preferred-height;
+        x: max(root.margin, min(root.width - self.width - root.margin,
+            toolbar.x + (toolbar.width - self.width) / 2));
+        y: root.settings-below ? toolbar.y + toolbar.height + root.gap / 2
+            : toolbar.y - root.gap / 2 - self.height;
+
+        srow := HorizontalLayout {
+            padding: 8px;
+            spacing: 14px;
+
+            if root.current.has-color: HorizontalLayout {
+                spacing: 6px;
+                for swatch in root.swatches: Swatch {
+                    value: swatch;
+                    selected: swatch == root.stroke-color;
+                    clicked => { root.stroke-color = swatch; }
+                }
+            }
+
+            if root.current.has-width: HorizontalLayout {
+                spacing: 8px;
+                WidthSlider {
+                    value <=> root.stroke-width;
+                    minimum: root.current.width-min;
+                    maximum: root.current.width-max;
+                }
+                Text {
+                    text: round(root.stroke-width) + " px";
+                    min-width: 36px;
+                    color: Theme.fg;
+                    font-size: 12px;
+                    vertical-alignment: center;
                 }
             }
         }
     }
 
+    pure function inside(x: length, y: length, el-x: length, el-y: length, el-w: length, el-h: length) -> bool {
+        x >= el-x && x < el-x + el-w && y >= el-y && y < el-y + el-h
+    }
+
     // Whether a point (in logical px) lands on interactive UI, so the
-    // overlay knows not to start a selection there.
+    // overlay knows not to handle it itself.
     public pure function hit(x: length, y: length) -> bool {
-        x >= toolbar.x && x < toolbar.x + toolbar.width
-            && y >= toolbar.y && y < toolbar.y + toolbar.height
+        root.panels-visible && (
+            root.inside(x, y, toolbar.x, toolbar.y, toolbar.width, toolbar.height)
+            || (root.show-settings && root.inside(x, y, settings.x, settings.y, settings.width, settings.height)))
     }
 }

@@ -3,6 +3,7 @@ use crate::render::renderer::Renderer;
 use crate::state::config::AppConfig;
 use crate::state::exit_flag::ExitFlag;
 use crate::ui::Ui;
+use ricture_tools::{Document, Style, Tool};
 use ricture_capture::Screenshot;
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;
@@ -46,6 +47,12 @@ pub(crate) struct App {
     pub(crate) ui_grab: bool,
     pub(crate) cursor_over_ui: bool,
 
+    /// Registered tools; the UI's active-tool index points into this.
+    pub(crate) tools: Vec<Box<dyn Tool>>,
+    pub(crate) document: Document,
+    /// The in-progress gesture changed and needs a redraw.
+    pub(crate) canvas_dirty: bool,
+
     pub(crate) config: AppConfig,
 }
 
@@ -54,10 +61,55 @@ impl App {
     /// pixels, clamped to the image bounds (implicit grabs can report
     /// positions outside the surface while dragging).
     pub(crate) fn to_buffer_coords(&self, (x, y): (f64, f64)) -> (f64, f64) {
+        let (sx, sy) = self.scale();
         let bw = self.screenshot.width as f64;
         let bh = self.screenshot.height as f64;
-        let sx = if self.width > 0 { bw / self.width as f64 } else { 1.0 };
-        let sy = if self.height > 0 { bh / self.height as f64 } else { 1.0 };
         ((x * sx).clamp(0.0, bw), (y * sy).clamp(0.0, bh))
+    }
+
+    /// Buffer pixels per logical pixel, per axis.
+    pub(crate) fn scale(&self) -> (f64, f64) {
+        let ratio = |buffer: u32, logical: u32| {
+            if logical > 0 { buffer as f64 / logical as f64 } else { 1.0 }
+        };
+        (
+            ratio(self.screenshot.width, self.width),
+            ratio(self.screenshot.height, self.height),
+        )
+    }
+
+    /// The finished selection, if any, in buffer pixels. Tiny rects (a stray
+    /// click) don't count.
+    pub(crate) fn settled_selection(&self) -> Option<tiny_skia::Rect> {
+        if self.selection.is_dragging {
+            return None;
+        }
+        self.selection
+            .rect()
+            .filter(|r| r.width() >= 2.0 && r.height() >= 2.0)
+    }
+
+    /// Style for a new gesture from the UI's current settings.
+    pub(crate) fn current_style(&self) -> Option<Style> {
+        let ui = self.ui.as_ref()?;
+        Some(Style {
+            color: ui.stroke_color(),
+            width: ui.stroke_width() * self.scale().0 as f32,
+        })
+    }
+
+    /// Mirrors the selection into the UI so the toolbar follows it.
+    pub(crate) fn sync_ui(&self) {
+        let Some(ui) = &self.ui else { return };
+        let (sx, sy) = self.scale();
+        let area = self.settled_selection().and_then(|r| {
+            tiny_skia::Rect::from_xywh(
+                r.x() / sx as f32,
+                r.y() / sy as f32,
+                r.width() / sx as f32,
+                r.height() / sy as f32,
+            )
+        });
+        ui.set_selection(area);
     }
 }

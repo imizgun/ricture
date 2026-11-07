@@ -36,7 +36,8 @@ impl LayerShellHandler for App {
             self.first_configure = false;
 
             let scale = self.screenshot.width as f32 / self.width.max(1) as f32;
-            match Ui::new(self.screenshot.width, self.screenshot.height, scale) {
+            let tools = self.tools.iter().map(|tool| tool.meta());
+            match Ui::new(self.screenshot.width, self.screenshot.height, scale, tools) {
                 Ok(ui) => self.ui = Some(ui),
                 Err(err) => eprintln!("ricture: UI disabled: {err}"),
             }

@@ -55,7 +55,7 @@ fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let app_config = state::AppConfig::from(config);
 
     let Some((action, (x, y, width, height), screenshot)) =
-        ricture_overlay::run(screenshot, app_config)?
+        ricture_overlay::run(screenshot, app_config, ricture_tools::default_tools())?
     else {
         return Ok(());
     };

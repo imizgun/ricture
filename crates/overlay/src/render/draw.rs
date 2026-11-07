@@ -1,11 +1,24 @@
 use crate::state::App;
+use ricture_capture::Screenshot;
 use smithay_client_toolkit::compositor::FrameCallbackData;
 use smithay_client_toolkit::shell::WaylandSurface;
-use tiny_skia::{Color, Paint, PathBuilder, Pixmap, PixmapPaint, Rect, Stroke, Transform};
+use tiny_skia::{
+    Color, FillRule, Mask, Paint, PathBuilder, Pixmap, PixmapMut, PixmapPaint, Rect, Stroke,
+    Transform,
+};
 use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
 
 impl App {
+    /// Composes and commits a frame:
+    ///
+    /// ```text
+    /// dimmed (screenshot + annotations + dim)
+    ///   + undimmed selection (from base)
+    ///   + live gesture, clipped to the selection
+    ///   + selection border
+    ///   + Slint UI layer
+    /// ```
     pub(crate) fn draw(&mut self, qh: &QueueHandle<Self>) {
         // Draw in screenshot (physical) pixels; the viewport maps this buffer
         // onto the logical surface size.
@@ -13,11 +26,15 @@ impl App {
         let height = self.screenshot.height;
         let stride = width as i32 * 4;
 
+        self.sync_ui();
+
         let first_draw = self.renderer.pixmap.is_none();
         let selection_changed = self.selection.changed();
+        let doc_changed = self.renderer.doc_revision != Some(self.document.revision());
+        let gesture_changed = std::mem::take(&mut self.canvas_dirty);
         let ui_changed = self.ui.as_mut().is_some_and(|ui| ui.render());
 
-        if !first_draw && !selection_changed && !ui_changed {
+        if !first_draw && !selection_changed && !doc_changed && !gesture_changed && !ui_changed {
             self.layer
                 .wl_surface()
                 .frame(qh, FrameCallbackData(self.layer.wl_surface().clone()));
@@ -25,26 +42,33 @@ impl App {
             return;
         }
 
+        if doc_changed {
+            self.rebuild_base(width, height);
+        }
         if first_draw {
-            let mut dimmed = Pixmap::new(width, height).expect("non-zero surface size");
-            dimmed.data_mut().copy_from_slice(&self.screenshot.rgba);
-            let full_rect = Rect::from_ltrb(0.0, 0.0, width as f32, height as f32).unwrap();
-            let mut dim = Paint::default();
-            dim.set_color(Color::from_rgba8(0, 0, 0, 140));
-            dimmed.fill_rect(full_rect, &dim, Transform::identity(), None);
-            self.renderer.dimmed = Some(dimmed);
             self.renderer.pixmap = Some(Pixmap::new(width, height).expect("non-zero surface size"));
         }
-        let pixmap = self.renderer.pixmap.as_mut().unwrap();
-        pixmap
-            .data_mut()
-            .copy_from_slice(self.renderer.dimmed.as_ref().unwrap().data());
 
         let selection_rect = self.selection.rect();
         let prev_rect = self.selection.prev_rect();
 
+        if let Some(rect) = selection_rect.filter(|_| self.document.is_drawing()) {
+            self.renderer.update_clip(rect, width, height);
+        }
+
+        let pixmap = self.renderer.pixmap.as_mut().unwrap();
+        let base = self.renderer.base.as_ref().unwrap();
+        pixmap
+            .data_mut()
+            .copy_from_slice(self.renderer.dimmed.as_ref().unwrap().data());
+
         if let Some(rect) = selection_rect {
-            undim_rect(pixmap, &self.screenshot.rgba, rect, width, height);
+            undim_rect(pixmap, base.data(), rect, width, height);
+        }
+
+        if self.document.is_drawing() {
+            let clip = self.renderer.clip.as_ref().map(|(_, mask)| mask);
+            self.document.render_active(&mut pixmap.as_mut(), clip);
         }
 
         if let Some(rect) = selection_rect {
@@ -94,8 +118,11 @@ impl App {
             dst.copy_from_slice(&swapped.to_ne_bytes());
         }
 
+        // Only a selection change is cheap to bound; anything else (UI,
+        // annotations) repaints the whole buffer.
+        let only_selection = !first_draw && !doc_changed && !gesture_changed && !ui_changed;
         match damage_bounds(prev_rect, selection_rect, width, height) {
-            Some((x, y, w, h)) if !first_draw && !ui_changed => {
+            Some((x, y, w, h)) if only_selection => {
                 self.layer.wl_surface().damage_buffer(x, y, w, h);
             }
             _ => {
@@ -115,9 +142,53 @@ impl App {
 
         self.selection.mark_drawn();
     }
+
+    /// Re-flattens committed annotations onto the screenshot and re-dims it.
+    fn rebuild_base(&mut self, width: u32, height: u32) {
+        let mut base = Pixmap::new(width, height).expect("non-zero surface size");
+        // The capture is opaque, so straight and premultiplied RGBA coincide.
+        base.data_mut().copy_from_slice(&self.screenshot.rgba);
+        self.document.render_committed(&mut base.as_mut());
+
+        let mut dimmed = base.clone();
+        let full_rect = Rect::from_ltrb(0.0, 0.0, width as f32, height as f32).unwrap();
+        let mut dim = Paint::default();
+        dim.set_color(Color::from_rgba8(0, 0, 0, 140));
+        dimmed.fill_rect(full_rect, &dim, Transform::identity(), None);
+
+        self.renderer.base = Some(base);
+        self.renderer.dimmed = Some(dimmed);
+        self.renderer.doc_revision = Some(self.document.revision());
+    }
+
+    /// The final image: the screenshot with all annotations applied.
+    pub(crate) fn flatten(mut self) -> Screenshot {
+        let (width, height) = (self.screenshot.width, self.screenshot.height);
+        if let Some(mut canvas) = PixmapMut::from_bytes(&mut self.screenshot.rgba, width, height) {
+            self.document.render_committed(&mut canvas);
+        }
+        self.screenshot
+    }
 }
 
-fn undim_rect(pixmap: &mut Pixmap, screenshot_rgba: &[u8], rect: Rect, width: u32, height: u32) {
+impl crate::render::renderer::Renderer {
+    /// Mask limiting live gestures to the selection. Rebuilt only when the
+    /// selection moves, since it is screen-sized.
+    fn update_clip(&mut self, rect: Rect, width: u32, height: u32) {
+        if self.clip.as_ref().is_none_or(|(key, _)| *key != rect) {
+            let mut mask = Mask::new(width, height).expect("non-zero surface size");
+            mask.fill_path(
+                &PathBuilder::from_rect(rect),
+                FillRule::Winding,
+                false,
+                Transform::identity(),
+            );
+            self.clip = Some((rect, mask));
+        }
+    }
+}
+
+fn undim_rect(pixmap: &mut Pixmap, base_rgba: &[u8], rect: Rect, width: u32, height: u32) {
     let x0 = rect.left().floor().max(0.0) as usize;
     let y0 = rect.top().floor().max(0.0) as usize;
     let x1 = (rect.right().ceil() as usize).min(width as usize);
@@ -132,7 +203,7 @@ fn undim_rect(pixmap: &mut Pixmap, screenshot_rgba: &[u8], rect: Rect, width: u3
     for y in y0..y1 {
         let row_start = y * stride + x0 * 4;
         dst[row_start..row_start + row_bytes]
-            .copy_from_slice(&screenshot_rgba[row_start..row_start + row_bytes]);
+            .copy_from_slice(&base_rgba[row_start..row_start + row_bytes]);
     }
 }
 

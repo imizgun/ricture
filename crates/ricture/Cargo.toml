@@ -9,4 +9,5 @@ ricture-overlay = { path = "../overlay" }
 ricture-config = {path = "../config" }
 ricture-export = { path = "../export" }
 ricture-notify = { path = "../notify" }
+ricture-tools = { path = "../tools" }
 chrono = "0.4.45"

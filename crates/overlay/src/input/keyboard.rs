@@ -8,6 +8,7 @@ use wayland_client::{Connection, QueueHandle};
 
 const KEY_C: u32 = 46;
 const KEY_S: u32 = 31;
+const KEY_Z: u32 = 44;
 
 impl KeyboardHandler for App {
     fn enter(
@@ -55,6 +56,10 @@ impl KeyboardHandler for App {
             Keysym::Return | Keysym::space => self.exit_flag = Some(ExitFlag::Copy),
             _ if self.ctrl_held && event.raw_code == KEY_C => self.exit_flag = Some(ExitFlag::Copy),
             _ if self.ctrl_held && event.raw_code == KEY_S => self.exit_flag = Some(ExitFlag::Save),
+            _ if self.ctrl_held && event.raw_code == KEY_Z && !self.document.is_drawing() => {
+                // The renderer notices the revision bump and redraws.
+                self.document.undo();
+            }
             _ => {}
         }
     }

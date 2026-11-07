@@ -10,12 +10,16 @@ use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity, La
 use crate::handlers::viewporter::ViewportData;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewporter::WpViewporter;
 use smithay_client_toolkit::shm::Shm;
+use ricture_tools::{Document, Tool};
 use wayland_client::Connection;
 use wayland_client::globals::registry_queue_init;
 
+/// Runs the interactive overlay. `tools` is the tool set offered in the
+/// toolbar; the overlay only relies on the `Tool` abstraction.
 pub fn run(
     screenshot: ricture_capture::Screenshot,
     config: AppConfig,
+    tools: Vec<Box<dyn Tool>>,
 ) -> Result<
     Option<(Action, (f64, f64, f64, f64), ricture_capture::Screenshot)>,
     Box<dyn std::error::Error>,
@@ -79,6 +83,10 @@ pub fn run(
         ui_grab: false,
         cursor_over_ui: false,
 
+        tools,
+        document: Document::default(),
+        canvas_dirty: false,
+
         config,
     };
 
@@ -93,11 +101,11 @@ pub fn run(
                 Some(ExitFlag::Save) => Action::Save,
                 _ => unreachable!(),
             };
-            let rect = app
-                .selection
-                .normalized()
-                .expect("confirmed selection must have both endpoints");
-            Ok(Some((action, rect, app.screenshot)))
+            // Confirming before anything was selected: nothing to export.
+            let Some(rect) = app.selection.normalized() else {
+                return Ok(None);
+            };
+            Ok(Some((action, rect, app.flatten())))
         }
         Some(ExitFlag::Cancelled) | None => Ok(None),
     }

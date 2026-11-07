@@ -9,7 +9,7 @@ No GTK/Qt — the overlay is a raw `wlr-layer-shell` surface rendered in softwar
 - [x] Notification via [`rustbus`](https://github.com/KillingSpark/rustbus)
 - [ ] Animation on startup
 - [ ] Annotation tools:
-- - [ ] Brush
+- - [x] Brush
 - - [ ] Arrow
 - - [ ] Line
 - - [ ] Primitive shapes
@@ -53,6 +53,7 @@ Drag a rectangle, hit `Enter` to save it to `screenshot.png` in the current dire
 |-----|--------|
 | `Ctrl + C` / `Enter` / `Space` |   Copy selected area to clipboard     |
 | `Ctrl + S` |   Save selected to `.png` in ~/Pictures/Screenshots directory     |
+| `Ctrl + Z` |   Undo last annotation     |
 
 ## Config
 `ricture` uses a TOML config file located at `~/.config/ricture/config.toml` (expample [`here`](https://github.com/imizgun/ricture/blob/main/examples/config.toml)):
@@ -72,7 +73,8 @@ rect_color = "#ffffff" # '#rrggbbaa' is also valid
 A Cargo workspace, one crate per concern:
 
 - `crates/capture` (`ricture-capture`) — pure Wayland screen capture. No UI, no rendering; just talks to `wlr-screencopy` and hands back raw RGBA pixels.
-- `crates/overlay` (`ricture-overlay`) — the interactive part: the layer-shell surface, input handling, and `tiny-skia` rendering. This is also where annotation tools will eventually live.
+- `crates/overlay` (`ricture-overlay`) — the interactive part: the layer-shell surface, input handling, `tiny-skia` rendering and the Slint UI. Knows tools only through the `ricture-tools` traits.
+- `crates/tools` (`ricture-tools`) — annotation tools: the `Tool` / `Gesture` / `Annotation` traits, the `Document` holding annotations, and the tool implementations. Adding a tool = implementing `Tool` and listing it in `default_tools()`.
 - `crates/config` (`ricture-config`) — TOML config parsing and validation.
 - `crates/export` (`ricture-export`) — PNG saving and clipboard copying.
 - `crates/notify` (`ricture-notify`) — desktop notifications.

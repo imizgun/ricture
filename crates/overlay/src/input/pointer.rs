@@ -3,8 +3,12 @@ use smithay_client_toolkit::seat::pointer::{
     CursorIcon, PointerEvent, PointerEventKind, PointerHandler,
 };
 use smithay_client_toolkit::shell::WaylandSurface;
+use tiny_skia::Point;
 use wayland_client::protocol::wl_pointer;
 use wayland_client::{Connection, QueueHandle};
+
+/// `BTN_LEFT` from linux/input-event-codes.h.
+const BTN_LEFT: u32 = 0x110;
 
 impl PointerHandler for App {
     fn pointer_frame(
@@ -20,8 +24,8 @@ impl PointerHandler for App {
                 continue;
             }
 
-            // Slint works in logical (surface) coordinates, the selection in
-            // buffer pixels.
+            // Slint works in logical (surface) coordinates; selection and
+            // annotations in buffer pixels.
             let logical = event.position;
             let position = self.to_buffer_coords(logical);
 
@@ -34,7 +38,10 @@ impl PointerHandler for App {
                     let force = matches!(event.kind, Enter { .. });
                     self.update_cursor(conn, logical, force);
 
-                    if self.selection.is_dragging {
+                    if self.document.is_drawing() {
+                        self.document.update(point(position));
+                        self.canvas_dirty = true;
+                    } else if self.selection.is_dragging {
                         self.selection.current = Some(position);
                     }
                 }
@@ -44,48 +51,67 @@ impl PointerHandler for App {
                     }
                 }
                 Axis { .. } => {}
-                Press { button, .. } => {
-                    if button != BTN_LEFT {
-                        continue;
-                    }
-                    if let Some(ui) = self.ui.as_ref().filter(|ui| ui.hit(logical)) {
-                        ui.pointer_pressed(logical);
-                        self.ui_grab = true;
-                        continue;
-                    }
-                    self.selection.start = Some(position);
-                    self.selection.current = Some(position);
-                    self.selection.is_dragging = true;
-                }
-                Release { button, .. } => {
-                    if button != BTN_LEFT {
-                        continue;
-                    }
-                    if self.ui_grab {
-                        self.ui_grab = false;
-                        if let Some(ui) = &self.ui {
-                            ui.pointer_released(logical);
-                        }
-                        continue;
-                    }
-                    if self.selection.is_dragging {
-                        self.selection.current = Some(position);
-                        self.selection.is_dragging = false;
-                    }
-                }
+                Press { button, .. } if button == BTN_LEFT => self.press(logical, position),
+                Release { button, .. } if button == BTN_LEFT => self.release(logical, position),
+                Press { .. } | Release { .. } => {}
             }
         }
     }
 }
 
-/// `BTN_LEFT` from linux/input-event-codes.h.
-const BTN_LEFT: u32 = 0x110;
-
 impl App {
-    /// Default arrow over the UI, crosshair over the screenshot.
+    fn press(&mut self, logical: (f64, f64), position: (f64, f64)) {
+        if let Some(ui) = self.ui.as_ref().filter(|ui| ui.hit(logical)) {
+            ui.pointer_pressed(logical);
+            self.ui_grab = true;
+            return;
+        }
+
+        let active_tool = self.ui.as_ref().and_then(|ui| ui.active_tool());
+        match active_tool.and_then(|index| self.tools.get(index)) {
+            // A drawing tool: draw, but only starting inside the area.
+            Some(tool) => {
+                let inside = self
+                    .settled_selection()
+                    .is_some_and(|r| {
+                        let (x, y) = (position.0 as f32, position.1 as f32);
+                        x >= r.left() && x <= r.right() && y >= r.top() && y <= r.bottom()
+                    });
+                if let (true, Some(style)) = (inside, self.current_style()) {
+                    self.document.begin(tool.as_ref(), point(position), style);
+                    self.canvas_dirty = true;
+                }
+            }
+            // Select mode: start a new selection.
+            None => {
+                self.selection.start = Some(position);
+                self.selection.current = Some(position);
+                self.selection.is_dragging = true;
+            }
+        }
+    }
+
+    fn release(&mut self, logical: (f64, f64), position: (f64, f64)) {
+        if self.ui_grab {
+            self.ui_grab = false;
+            if let Some(ui) = &self.ui {
+                ui.pointer_released(logical);
+            }
+        } else if self.document.is_drawing() {
+            self.document.update(point(position));
+            self.document.finish();
+            self.canvas_dirty = true;
+        } else if self.selection.is_dragging {
+            self.selection.current = Some(position);
+            self.selection.is_dragging = false;
+        }
+    }
+
+    /// Default arrow over the UI, crosshair elsewhere.
     fn update_cursor(&mut self, conn: &Connection, logical: (f64, f64), force: bool) {
-        let over_ui = !self.selection.is_dragging
-            && (self.ui_grab || self.ui.as_ref().is_some_and(|ui| ui.hit(logical)));
+        let busy = self.selection.is_dragging || self.document.is_drawing();
+        let over_ui =
+            !busy && (self.ui_grab || self.ui.as_ref().is_some_and(|ui| ui.hit(logical)));
         if over_ui == self.cursor_over_ui && !force {
             return;
         }
@@ -95,4 +121,8 @@ impl App {
             let _ = pointer.set_cursor(conn, icon);
         }
     }
+}
+
+fn point((x, y): (f64, f64)) -> Point {
+    Point::from_xy(x as f32, y as f32)
 }
