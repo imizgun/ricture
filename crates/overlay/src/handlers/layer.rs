@@ -1,4 +1,5 @@
 use crate::state::{App, ExitFlag};
+use crate::ui::Ui;
 use smithay_client_toolkit::shell::wlr_layer::{
     LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
 };
@@ -33,6 +34,13 @@ impl LayerShellHandler for App {
 
         if self.first_configure {
             self.first_configure = false;
+
+            let scale = self.screenshot.width as f32 / self.width.max(1) as f32;
+            match Ui::new(self.screenshot.width, self.screenshot.height, scale) {
+                Ok(ui) => self.ui = Some(ui),
+                Err(err) => eprintln!("ricture: UI disabled: {err}"),
+            }
+
             let byte_size =
                 self.screenshot.width as usize * self.screenshot.height as usize * 4;
             self.renderer.pool =

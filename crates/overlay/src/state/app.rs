@@ -2,6 +2,7 @@ use crate::input::selection::Selection;
 use crate::render::renderer::Renderer;
 use crate::state::config::AppConfig;
 use crate::state::exit_flag::ExitFlag;
+use crate::ui::Ui;
 use ricture_capture::Screenshot;
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;
@@ -39,6 +40,11 @@ pub(crate) struct App {
     pub(crate) screenshot: Screenshot,
     pub(crate) renderer: Renderer,
     pub(crate) selection: Selection,
+    /// Created on first configure, once the surface scale is known.
+    pub(crate) ui: Option<Ui>,
+    /// A press started on the UI; the matching release belongs to it too.
+    pub(crate) ui_grab: bool,
+    pub(crate) cursor_over_ui: bool,
 
     pub(crate) config: AppConfig,
 }

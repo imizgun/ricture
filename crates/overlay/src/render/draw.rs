@@ -1,7 +1,7 @@
 use crate::state::App;
 use smithay_client_toolkit::compositor::FrameCallbackData;
 use smithay_client_toolkit::shell::WaylandSurface;
-use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Rect, Stroke, Transform};
+use tiny_skia::{Color, Paint, PathBuilder, Pixmap, PixmapPaint, Rect, Stroke, Transform};
 use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
 
@@ -15,8 +15,9 @@ impl App {
 
         let first_draw = self.renderer.pixmap.is_none();
         let selection_changed = self.selection.changed();
+        let ui_changed = self.ui.as_mut().is_some_and(|ui| ui.render());
 
-        if !first_draw && !selection_changed {
+        if !first_draw && !selection_changed && !ui_changed {
             self.layer
                 .wl_surface()
                 .frame(qh, FrameCallbackData(self.layer.wl_surface().clone()));
@@ -57,6 +58,17 @@ impl App {
             pixmap.stroke_path(&border, &paint, &stroke, Transform::identity(), None);
         }
 
+        if let Some(ui) = &self.ui {
+            pixmap.draw_pixmap(
+                0,
+                0,
+                ui.pixmap.as_ref(),
+                &PixmapPaint::default(),
+                Transform::identity(),
+                None,
+            );
+        }
+
         let pool = self
             .renderer
             .pool
@@ -83,7 +95,7 @@ impl App {
         }
 
         match damage_bounds(prev_rect, selection_rect, width, height) {
-            Some((x, y, w, h)) if !first_draw => {
+            Some((x, y, w, h)) if !first_draw && !ui_changed => {
                 self.layer.wl_surface().damage_buffer(x, y, w, h);
             }
             _ => {

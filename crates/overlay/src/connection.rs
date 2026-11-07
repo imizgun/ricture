@@ -75,6 +75,9 @@ pub fn run(
         screenshot,
         renderer: Renderer::default(),
         selection: Selection::default(),
+        ui: None,
+        ui_grab: false,
+        cursor_over_ui: false,
 
         config,
     };

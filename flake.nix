@@ -22,6 +22,7 @@
           buildInputs = [
             pkgs.libxkbcommon
             pkgs.wayland
+            pkgs.fontconfig
           ];
 
           postFixup = ''
@@ -35,6 +36,7 @@
           buildInputs = [
             pkgs.libxkbcommon
             pkgs.wayland
+            pkgs.fontconfig
           ];
           packages = [ pkgs.wl-clipboard ];
         };

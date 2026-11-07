@@ -21,14 +21,14 @@ No GTK/Qt — the overlay is a raw `wlr-layer-shell` surface rendered in softwar
 
 ## Building
 
-This project depends on `libxkbcommon` at build time (via `smithay-client-toolkit`), which needs `pkg-config` to be found. A [Nix flake](./flake.nix) is included with a dev shell that provides it:
+This project depends on `libxkbcommon` (via `smithay-client-toolkit`) and `fontconfig` (via Slint's system font loading) at build time, both found through `pkg-config`. A [Nix flake](./flake.nix) is included with a dev shell that provides them:
 
 ```sh
 nix develop
 cargo build --release
 ```
 
-Without Nix, just make sure `pkg-config` and `libxkbcommon`'s dev headers are installed and `cargo build --release` should work directly.
+Without Nix, just make sure `pkg-config` plus the dev headers for `libxkbcommon` and `fontconfig` are installed and `cargo build --release` should work directly.
 
 Use `--release` — the overlay redraws itself continuously while open, and an unoptimized debug build is easily 30x slower per frame, which is very noticeable as input lag while dragging.
 

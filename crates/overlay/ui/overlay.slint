@@ -1,0 +1,145 @@
+// Overlay UI drawn on top of the screenshot. Rendered by Slint's software
+// renderer into an offscreen buffer that the overlay composites over its own
+// tiny-skia frame, so this window is fully transparent apart from its widgets.
+
+export enum Tool {
+    select,
+    brush,
+    arrow,
+    line,
+    rectangle,
+    ellipse,
+    text,
+    counter,
+    blur,
+    scaler,
+}
+
+export struct ToolInfo {
+    tool: Tool,
+    name: string,
+    // SVG path data on a 24x24 viewbox, stroked.
+    icon: string,
+}
+
+global Theme {
+    out property <color> panel: #1c1c20e8;
+    out property <color> panel-border: #ffffff1f;
+    out property <color> fg: #e6e6ea;
+    out property <color> hover: #ffffff17;
+    out property <color> accent: #4f8cff;
+    out property <color> on-accent: #ffffff;
+    out property <color> frame: #4f8cff99;
+    out property <length> radius: 12px;
+}
+
+component Tooltip inherits Rectangle {
+    in property <string> text;
+
+    width: label.preferred-width + 16px;
+    height: 24px;
+    border-radius: 6px;
+    background: Theme.panel;
+    border-width: 1px;
+    border-color: Theme.panel-border;
+
+    label := Text {
+        text: root.text;
+        color: Theme.fg;
+        font-size: 12px;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+}
+
+component ToolButton inherits Rectangle {
+    in property <ToolInfo> info;
+    in property <bool> active;
+    callback clicked;
+
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: root.active ? Theme.accent : touch.has-hover ? Theme.hover : transparent;
+    animate background { duration: 120ms; }
+
+    Path {
+        width: 20px;
+        height: 20px;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: root.info.icon;
+        fill: transparent;
+        stroke: root.active ? Theme.on-accent : Theme.fg;
+        stroke-width: 1.8px;
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    if touch.has-hover: Tooltip {
+        text: root.info.name;
+        x: (root.width - self.width) / 2;
+        y: -self.height - 12px;
+    }
+}
+
+export component OverlayUi inherits Window {
+    background: transparent;
+
+    in-out property <Tool> active-tool: Tool.select;
+
+    in property <[ToolInfo]> tools: [
+        { tool: Tool.select,    name: "Select",          icon: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" },
+        { tool: Tool.brush,     name: "Brush",           icon: "M4 20c2.5 0 5-.8 6-3.5l8.5-8.5a2.1 2.1 0 0 0-3-3L7 13.5C4.5 14.5 4 17 4 20z" },
+        { tool: Tool.arrow,     name: "Arrow",           icon: "M5 19L19 5M10 5h9v9" },
+        { tool: Tool.line,      name: "Line",            icon: "M5 19L19 5" },
+        { tool: Tool.rectangle, name: "Rectangle",       icon: "M4 6h16v12H4z" },
+        { tool: Tool.ellipse,   name: "Ellipse",         icon: "M3 12a9 6.5 0 1 0 18 0a9 6.5 0 1 0-18 0z" },
+        { tool: Tool.text,      name: "Text",            icon: "M5 7V4h14v3M12 4v16M9 20h6" },
+        { tool: Tool.counter,   name: "Numbered circle", icon: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0zM10.5 9l2-1.5V16.5" },
+        { tool: Tool.blur,      name: "Blur",            icon: "M12 3c4 5 6.5 8 6.5 11.5a6.5 6.5 0 0 1-13 0C5.5 11 8 8 12 3z" },
+        { tool: Tool.scaler,    name: "Scaler",          icon: "M4 10.5a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0zM15.5 15.5L20 20M10.5 8v5M8 10.5h5" },
+    ];
+
+    callback tool-selected(Tool);
+
+    // Frame along the screen perimeter.
+    Rectangle {
+        border-width: 2px;
+        border-color: Theme.frame;
+    }
+
+    toolbar := Rectangle {
+        width: row.preferred-width;
+        height: row.preferred-height;
+        x: (root.width - self.width) / 2;
+        y: root.height - self.height - 20px;
+        background: Theme.panel;
+        border-radius: Theme.radius;
+        border-width: 1px;
+        border-color: Theme.panel-border;
+
+        row := HorizontalLayout {
+            padding: 6px;
+            spacing: 4px;
+
+            for info in root.tools: ToolButton {
+                info: info;
+                active: info.tool == root.active-tool;
+                clicked => {
+                    root.active-tool = info.tool;
+                    root.tool-selected(info.tool);
+                }
+            }
+        }
+    }
+
+    // Whether a point (in logical px) lands on interactive UI, so the
+    // overlay knows not to start a selection there.
+    public pure function hit(x: length, y: length) -> bool {
+        x >= toolbar.x && x < toolbar.x + toolbar.width
+            && y >= toolbar.y && y < toolbar.y + toolbar.height
+    }
+}
