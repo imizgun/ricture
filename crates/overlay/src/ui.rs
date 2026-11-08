@@ -6,6 +6,7 @@ use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType,
 };
 use slint::platform::{PointerEventButton, WindowEvent};
+use crate::render::blit::VisibleRuns;
 use ricture_tools::{Setting, ToolMeta};
 use slint::{ComponentHandle, LogicalPosition, ModelRc, PhysicalSize, PlatformError, VecModel};
 use std::rc::Rc;
@@ -17,6 +18,7 @@ pub(crate) struct Ui {
     
     /// Last rendered UI frame, premultiplied RGBA at buffer resolution.
     pub(crate) pixmap: Pixmap,
+    visible: VisibleRuns,
 }
 
 impl Ui {
@@ -45,6 +47,7 @@ impl Ui {
             window,
             component,
             pixmap,
+            visible: VisibleRuns::default(),
         })
     }
 
@@ -80,10 +83,19 @@ impl Ui {
         slint::platform::update_timers_and_animations();
         let width = self.pixmap.width() as usize;
         let pixmap = &mut self.pixmap;
-        self.window.draw_if_needed(|renderer| {
+        let changed = self.window.draw_if_needed(|renderer| {
             let pixels: &mut [PremultipliedRgbaColor] = bytemuck::cast_slice_mut(pixmap.data_mut());
             renderer.render(pixels, width);
-        })
+        });
+        if changed {
+            self.visible.rebuild(&self.pixmap);
+        }
+        changed
+    }
+
+    /// Blends the last rendered UI frame over `target`.
+    pub(crate) fn composite_onto(&self, target: &mut Pixmap) {
+        self.visible.composite(&self.pixmap, target);
     }
 
     pub(crate) fn hit(&self, (x, y): (f64, f64)) -> bool {

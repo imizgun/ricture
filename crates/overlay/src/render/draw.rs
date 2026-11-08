@@ -3,8 +3,7 @@ use ricture_capture::Screenshot;
 use smithay_client_toolkit::compositor::FrameCallbackData;
 use smithay_client_toolkit::shell::WaylandSurface;
 use tiny_skia::{
-    Color, FillRule, Mask, Paint, PathBuilder, Pixmap, PixmapMut, PixmapPaint, Rect, Stroke,
-    Transform,
+    Color, FillRule, Mask, Paint, PathBuilder, Pixmap, PixmapMut, Rect, Stroke, Transform,
 };
 use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
@@ -83,14 +82,7 @@ impl App {
         }
 
         if let Some(ui) = &self.ui {
-            pixmap.draw_pixmap(
-                0,
-                0,
-                ui.pixmap.as_ref(),
-                &PixmapPaint::default(),
-                Transform::identity(),
-                None,
-            );
+            ui.composite_onto(pixmap);
         }
 
         let pool = self
