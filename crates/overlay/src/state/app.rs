@@ -2,8 +2,9 @@ use crate::input::selection::Selection;
 use crate::render::renderer::Renderer;
 use crate::state::config::AppConfig;
 use crate::state::exit_flag::ExitFlag;
-use crate::ui::Ui;
-use ricture_tools::{Document, Style, Tool};
+use crate::state::toolbox::Toolbox;
+use crate::ui::{Ui, UiEvent};
+use ricture_tools::{Document, Style};
 use ricture_capture::Screenshot;
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;
@@ -47,8 +48,7 @@ pub(crate) struct App {
     pub(crate) ui_grab: bool,
     pub(crate) cursor_over_ui: bool,
 
-    /// Registered tools; the UI's active-tool index points into this.
-    pub(crate) tools: Vec<Box<dyn Tool>>,
+    pub(crate) toolbox: Toolbox,
     pub(crate) document: Document,
     /// The in-progress gesture changed and needs a redraw.
     pub(crate) canvas_dirty: bool,
@@ -89,16 +89,30 @@ impl App {
             .filter(|r| r.width() >= 2.0 && r.height() >= 2.0)
     }
 
-    /// Style for a new gesture from the UI's current settings.
-    pub(crate) fn current_style(&self) -> Option<Style> {
-        let ui = self.ui.as_ref()?;
-        Some(Style {
-            color: ui.stroke_color(),
-            width: ui.stroke_width() * self.scale().0 as f32,
-        })
+    /// Style for a new gesture from the current settings.
+    pub(crate) fn current_style(&self) -> Style {
+        self.toolbox.style(self.scale().0 as f32)
     }
 
-    /// Mirrors the selection into the UI so the toolbar follows it.
+    /// Applies what the user asked for through the UI since the last call.
+    pub(crate) fn apply_ui_events(&mut self) {
+        let Some(ui) = &self.ui else { return };
+        for event in ui.take_events() {
+            match event {
+                UiEvent::ToolSelected(index) => self.toolbox.select(index),
+                UiEvent::ColorPicked(index) => self.toolbox.pick_color(index),
+                UiEvent::WidthChanged(value) => self.toolbox.set_width(value),
+                UiEvent::WidthScrolled(steps) => self.toolbox.scroll_width(steps),
+                UiEvent::PickerToggled => self.toolbox.toggle_picker(),
+                UiEvent::PickerHueChanged(hue) => self.toolbox.set_picked_hue(hue),
+                UiEvent::PickerShadeChanged(saturation, value) => {
+                    self.toolbox.set_picked_shade(saturation, value)
+                }
+            }
+        }
+    }
+
+    /// Pushes the current state into the UI, which only displays it.
     pub(crate) fn sync_ui(&self) {
         let Some(ui) = &self.ui else { return };
         let (sx, sy) = self.scale();
@@ -111,5 +125,6 @@ impl App {
             )
         });
         ui.set_selection(area);
+        ui.set_tool_state(&self.toolbox);
     }
 }

@@ -1,6 +1,6 @@
 use crate::input::selection::Selection;
 use crate::render::renderer::Renderer;
-use crate::state::{Action, App, AppConfig, ExitFlag};
+use crate::state::{Action, App, AppConfig, ExitFlag, Toolbox};
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;
 use smithay_client_toolkit::registry::RegistryState;
@@ -83,7 +83,7 @@ pub fn run(
         ui_grab: false,
         cursor_over_ui: false,
 
-        tools,
+        toolbox: Toolbox::new(tools, config.brush_color, config.brush_width),
         document: Document::default(),
         canvas_dirty: false,
 

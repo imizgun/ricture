@@ -64,6 +64,10 @@ enable_notifications = true
 
 [appearance]
 rect_color = "#ffffff" # '#rrggbbaa' is also valid
+
+[tools.brush]
+color = "#ff3b30" # '#rrggbbaa' is also valid
+width = 4 # 1..32 logical px, larger values are limited to 32
 ```
 
 

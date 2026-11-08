@@ -1,6 +1,6 @@
 use crate::state::App;
 use smithay_client_toolkit::seat::pointer::{
-    CursorIcon, PointerEvent, PointerEventKind, PointerHandler,
+    AxisScroll, CursorIcon, PointerEvent, PointerEventKind, PointerHandler,
 };
 use smithay_client_toolkit::shell::WaylandSurface;
 use tiny_skia::Point;
@@ -50,11 +50,19 @@ impl PointerHandler for App {
                         ui.pointer_exited();
                     }
                 }
-                Axis { .. } => {}
+                Axis { ref vertical, .. } => {
+                    let steps = scroll_steps(vertical);
+                    if let Some(ui) = self.ui.as_ref().filter(|_| steps != 0.0) {
+                        ui.pointer_scrolled(logical, steps);
+                    }
+                }
                 Press { button, .. } if button == BTN_LEFT => self.press(logical, position),
                 Release { button, .. } if button == BTN_LEFT => self.release(logical, position),
                 Press { .. } | Release { .. } => {}
             }
+
+            // Before the next event, which may depend on what this one changed.
+            self.apply_ui_events();
         }
     }
 }
@@ -67,8 +75,7 @@ impl App {
             return;
         }
 
-        let active_tool = self.ui.as_ref().and_then(|ui| ui.active_tool());
-        match active_tool.and_then(|index| self.tools.get(index)) {
+        match self.toolbox.active() {
             // A drawing tool: draw, but only starting inside the area.
             Some(tool) => {
                 let inside = self
@@ -77,8 +84,8 @@ impl App {
                         let (x, y) = (position.0 as f32, position.1 as f32);
                         x >= r.left() && x <= r.right() && y >= r.top() && y <= r.bottom()
                     });
-                if let (true, Some(style)) = (inside, self.current_style()) {
-                    self.document.begin(tool.as_ref(), point(position), style);
+                if inside {
+                    self.document.begin(tool, point(position), self.current_style());
                     self.canvas_dirty = true;
                 }
             }
@@ -125,4 +132,39 @@ impl App {
 
 fn point((x, y): (f64, f64)) -> Point {
     Point::from_xy(x as f32, y as f32)
+}
+
+/// Vertical scroll in wheel notches, fractional for high-resolution wheels
+/// and touchpads. Positive means up, as in Slint (Wayland's axis points down).
+fn scroll_steps(axis: &AxisScroll) -> f32 {
+    /// Pixels libinput reports for one notch; touchpads only give pixels.
+    const PIXELS_PER_NOTCH: f64 = 15.0;
+
+    let down = if axis.value120 != 0 {
+        axis.value120 as f64 / 120.0
+    } else if axis.discrete != 0 {
+        axis.discrete as f64
+    } else {
+        axis.absolute / PIXELS_PER_NOTCH
+    };
+    -down as f32
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scroll_prefers_the_most_precise_wheel_data() {
+        let high_res = AxisScroll { absolute: 15.0, discrete: 1, value120: 60, ..Default::default() };
+        assert_eq!(scroll_steps(&high_res), -0.5);
+        let legacy = AxisScroll { absolute: 15.0, discrete: -2, ..Default::default() };
+        assert_eq!(scroll_steps(&legacy), 2.0);
+    }
+
+    #[test]
+    fn touchpad_scroll_is_converted_from_pixels() {
+        let touchpad = AxisScroll { absolute: -7.5, ..Default::default() };
+        assert_eq!(scroll_steps(&touchpad), 0.5);
+    }
 }

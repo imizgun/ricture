@@ -2,8 +2,10 @@
 // renderer into an offscreen buffer that the overlay composites over its own
 // tiny-skia frame, so this window is fully transparent apart from its widgets.
 //
-// Tools are not known here: Rust fills `tools` from the registered
-// `ricture_tools::Tool`s, and reads `active-tool` / `stroke-*` back.
+// This file only displays state owned by Rust: values come in through `in`
+// properties, and user actions go out through callbacks. Rust decides what
+// they change and pushes the result back. Only presentation (layout, hover)
+// is computed here.
 
 export struct ToolInfo {
     name: string,
@@ -103,11 +105,147 @@ component Swatch inherits Rectangle {
     }
 }
 
+// A swatch for "any other color". Slices, because the software renderer
+// ignores border-radius on conic gradients.
+component RainbowSwatch inherits Rectangle {
+    in property <bool> selected;
+    callback clicked;
+
+    width: 22px;
+    height: 22px;
+
+    for slice in [
+        { commands: "M12 12L12 1A11 11 0 0 1 21.526 6.5Z", color: #ff3b30 },
+        { commands: "M12 12L21.526 6.5A11 11 0 0 1 21.526 17.5Z", color: #ffcc00 },
+        { commands: "M12 12L21.526 17.5A11 11 0 0 1 12 23Z", color: #34c759 },
+        { commands: "M12 12L12 23A11 11 0 0 1 2.474 17.5Z", color: #32d4e6 },
+        { commands: "M12 12L2.474 17.5A11 11 0 0 1 2.474 6.5Z", color: #0a84ff },
+        { commands: "M12 12L2.474 6.5A11 11 0 0 1 12 1Z", color: #af52de },
+    ]: Path {
+        width: root.width;
+        height: root.height;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: slice.commands;
+        fill: slice.color;
+    }
+
+    Rectangle {
+        border-radius: self.width / 2;
+        border-width: root.selected ? 2px : 1px;
+        border-color: root.selected ? Theme.fg : Theme.panel-border;
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// Reports the pointer position on press and while dragging.
+component DragArea inherits TouchArea {
+    callback dragged(length, length);
+
+    pointer-event(event) => {
+        if (event.kind == PointerEventKind.down) {
+            root.dragged(self.mouse-x, self.mouse-y);
+        }
+    }
+    moved => {
+        if (self.pressed) {
+            root.dragged(self.mouse-x, self.mouse-y);
+        }
+    }
+}
+
+component ColorPicker inherits Rectangle {
+    in property <float> hue;
+    in property <float> saturation;
+    in property <float> value;
+    in property <color> hue-color;
+    in property <color> current;
+    // Pointer positions as fractions of each area; they may fall outside 0..1.
+    callback hue-changed(float);
+    callback shade-changed(float, float);
+
+    property <length> strip: 14px;
+    property <length> spacing: 8px;
+    property <brush> rainbow: @linear-gradient(90deg,
+        #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%, #00ffff 50%,
+        #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%);
+
+    height: 132px;
+    min-width: 200px;
+
+    shade := Rectangle {
+        y: 0;
+        height: root.height - root.strip - root.spacing;
+        background: root.hue-color;
+
+        Rectangle {
+            background: @linear-gradient(90deg, #ffffff 0%, #ffffff00 100%);
+        }
+
+        Rectangle {
+            background: @linear-gradient(180deg, #00000000 0%, #000000 100%);
+        }
+
+        Rectangle {
+            x: root.saturation * parent.width - self.width / 2;
+            y: (1 - root.value) * parent.height - self.height / 2;
+            width: 14px;
+            height: 14px;
+            border-radius: self.width / 2;
+            border-width: 2px;
+            border-color: Theme.fg;
+            background: root.current;
+        }
+
+        DragArea {
+            dragged(x, y) => {
+                root.shade-changed(x / self.width, 1 - y / self.height);
+            }
+        }
+    }
+
+    // The software renderer can drop a pixel where gradient stops meet. A copy
+    // shifted by 1px underneath fills those holes.
+    Rectangle {
+        x: 1px;
+        y: root.height - root.strip;
+        width: root.width - 1px;
+        height: root.strip;
+        background: root.rainbow;
+    }
+
+    Rectangle {
+        y: root.height - root.strip;
+        height: root.strip;
+        background: root.rainbow;
+
+        Rectangle {
+            x: root.hue * parent.width - self.width / 2;
+            width: 6px;
+            border-radius: 3px;
+            border-width: 1px;
+            border-color: #00000080;
+            background: Theme.fg;
+        }
+
+        DragArea {
+            dragged(x, y) => { root.hue-changed(x / self.width); }
+        }
+    }
+}
+
 // Minimal slider; the std-widgets one would pull in a whole widget style.
 component WidthSlider inherits Rectangle {
-    in-out property <float> value;
+    in property <float> value;
     in property <float> minimum: 0;
     in property <float> maximum: 1;
+    // The value under the pointer, neither rounded nor limited to the range.
+    callback changed(float);
+    // Wheel notches, positive means up.
+    callback scrolled(float);
 
     property <length> knob: 14px;
     property <length> track: root.width - root.knob;
@@ -117,8 +255,7 @@ component WidthSlider inherits Rectangle {
     height: 22px;
 
     function set-from(px: length) {
-        root.value = round(max(root.minimum, min(root.maximum,
-            root.minimum + (px - root.knob / 2) / root.track * (root.maximum - root.minimum))));
+        root.changed(root.minimum + (px - root.knob / 2) / root.track * (root.maximum - root.minimum));
     }
 
     Rectangle {
@@ -145,16 +282,11 @@ component WidthSlider inherits Rectangle {
         background: Theme.fg;
     }
 
-    TouchArea {
-        pointer-event(event) => {
-            if (event.kind == PointerEventKind.down) {
-                root.set-from(self.mouse-x);
-            }
-        }
-        moved => {
-            if (self.pressed) {
-                root.set-from(self.mouse-x);
-            }
+    DragArea {
+        dragged(x, y) => { root.set-from(x); }
+        scroll-event(event) => {
+            root.scrolled(event.delta-y / 1px);
+            accept
         }
     }
 }
@@ -164,9 +296,27 @@ export component OverlayUi inherits Window {
 
     in property <[ToolInfo]> tools;
     // -1 = Select (drag re-selects the area), otherwise an index into `tools`.
-    in-out property <int> active-tool: -1;
-    in-out property <color> stroke-color: #ff3b30;
-    in-out property <float> stroke-width: 4;
+    in property <int> active-tool: -1;
+    in property <[color]> swatches;
+    in property <color> stroke-color;
+    in property <float> stroke-width;
+    in property <bool> color-is-custom;
+
+    in property <bool> picker-open;
+    in property <float> picker-hue;
+    in property <float> picker-saturation;
+    in property <float> picker-value;
+    in property <color> picker-hue-color;
+
+    // -1 = Select, as for `active-tool`.
+    callback tool-selected(int);
+    // Index into `swatches`.
+    callback color-picked(int);
+    callback width-changed(float);
+    callback width-scrolled(float);
+    callback picker-toggled();
+    callback picker-hue-changed(float);
+    callback picker-shade-changed(float, float);
 
     // Selected area in logical px. Panels are shown around it once the user
     // has finished selecting.
@@ -176,7 +326,6 @@ export component OverlayUi inherits Window {
     in property <length> sel-w;
     in property <length> sel-h;
 
-    property <[color]> swatches: [#ff3b30, #ff9500, #ffcc00, #34c759, #0a84ff, #af52de, #ffffff, #000000];
     property <length> margin: 8px;
     property <length> gap: 10px;
 
@@ -216,7 +365,7 @@ export component OverlayUi inherits Window {
                 name: "Select";
                 icon: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5";
                 active: root.active-tool == -1;
-                clicked => { root.active-tool = -1; }
+                clicked => { root.tool-selected(-1); }
             }
 
             Rectangle {
@@ -228,47 +377,67 @@ export component OverlayUi inherits Window {
                 name: info.name;
                 icon: info.icon;
                 active: root.active-tool == index;
-                clicked => { root.active-tool = index; }
+                clicked => { root.tool-selected(index); }
             }
         }
     }
 
     settings := Panel {
         visible: root.panels-visible && root.show-settings;
-        width: srow.preferred-width;
-        height: srow.preferred-height;
+        width: column.preferred-width;
+        height: column.preferred-height;
         x: max(root.margin, min(root.width - self.width - root.margin,
             toolbar.x + (toolbar.width - self.width) / 2));
         y: root.settings-below ? toolbar.y + toolbar.height + root.gap / 2
             : toolbar.y - root.gap / 2 - self.height;
 
-        srow := HorizontalLayout {
+        column := VerticalLayout {
             padding: 8px;
-            spacing: 14px;
+            spacing: 8px;
 
-            if root.current.has-color: HorizontalLayout {
-                spacing: 6px;
-                for swatch in root.swatches: Swatch {
-                    value: swatch;
-                    selected: swatch == root.stroke-color;
-                    clicked => { root.stroke-color = swatch; }
+            HorizontalLayout {
+                spacing: 14px;
+
+                if root.current.has-color: HorizontalLayout {
+                    spacing: 6px;
+                    for swatch[index] in root.swatches: Swatch {
+                        value: swatch;
+                        selected: swatch == root.stroke-color;
+                        clicked => { root.color-picked(index); }
+                    }
+                    RainbowSwatch {
+                        selected: root.color-is-custom;
+                        clicked => { root.picker-toggled(); }
+                    }
+                }
+
+                if root.current.has-width: HorizontalLayout {
+                    spacing: 8px;
+                    WidthSlider {
+                        value: root.stroke-width;
+                        minimum: root.current.width-min;
+                        maximum: root.current.width-max;
+                        changed(value) => { root.width-changed(value); }
+                        scrolled(steps) => { root.width-scrolled(steps); }
+                    }
+                    Text {
+                        text: root.stroke-width + " px";
+                        min-width: 36px;
+                        color: Theme.fg;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
                 }
             }
 
-            if root.current.has-width: HorizontalLayout {
-                spacing: 8px;
-                WidthSlider {
-                    value <=> root.stroke-width;
-                    minimum: root.current.width-min;
-                    maximum: root.current.width-max;
-                }
-                Text {
-                    text: round(root.stroke-width) + " px";
-                    min-width: 36px;
-                    color: Theme.fg;
-                    font-size: 12px;
-                    vertical-alignment: center;
-                }
+            if root.picker-open: ColorPicker {
+                hue: root.picker-hue;
+                saturation: root.picker-saturation;
+                value: root.picker-value;
+                hue-color: root.picker-hue-color;
+                current: root.stroke-color;
+                hue-changed(hue) => { root.picker-hue-changed(hue); }
+                shade-changed(saturation, value) => { root.picker-shade-changed(saturation, value); }
             }
         }
     }

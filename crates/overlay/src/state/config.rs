@@ -3,13 +3,14 @@ use tiny_skia::Color;
 
 pub struct AppConfig {
     pub(crate) rect_color: Color,
+    pub(crate) brush_color: Color,
+    /// Logical px.
+    pub(crate) brush_width: f32,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
-        AppConfig {
-            rect_color: Color::from_rgba8(255, 255, 255, 255),
-        }
+        Config::default().into()
     }
 }
 
@@ -17,6 +18,8 @@ impl From<Config> for AppConfig {
     fn from(config: Config) -> Self {
         AppConfig {
             rect_color: parse_rrggbbaa(&config.appearance.rect_color),
+            brush_color: parse_rrggbbaa(&config.tools.brush.color),
+            brush_width: config.tools.brush.width as f32,
         }
     }
 }

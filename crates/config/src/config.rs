@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 use validator::{Validate, ValidationError};
 
-static RECT_COLOR_RE: LazyLock<Regex> =
+static HEX_COLOR_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^#[0-9a-f]{6}([0-9a-f]{2})?$").unwrap());
 
 #[derive(Deserialize, Serialize, Validate)]
@@ -15,6 +15,8 @@ pub struct Config {
     pub general: ConfigGeneral,
     #[validate(nested)]
     pub appearance: ConfigAppearance,
+    #[validate(nested)]
+    pub tools: ConfigTools,
 }
 
 #[derive(Deserialize, Serialize, Validate)]
@@ -28,16 +30,41 @@ pub struct ConfigGeneral {
 }
 
 const DEFAULT_RECT_COLOR: &'static str = "#ffffff";
+const DEFAULT_BRUSH_COLOR: &'static str = "#ff3b30";
+const DEFAULT_BRUSH_WIDTH: u32 = 4;
 
 #[derive(Deserialize, Serialize, Validate)]
 #[serde(default)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigAppearance {
     #[validate(regex(
-        path = *RECT_COLOR_RE,
+        path = *HEX_COLOR_RE,
         message = "invalid value for 'rect_color': valid value is '#rrggbb' or '#rrggbbaa'."
     ))]
     pub rect_color: String,
+}
+
+#[derive(Default, Deserialize, Serialize, Validate)]
+#[serde(default)]
+#[serde(deny_unknown_fields)]
+pub struct ConfigTools {
+    #[validate(nested)]
+    pub brush: ConfigBrush,
+}
+
+#[derive(Deserialize, Serialize, Validate)]
+#[serde(default)]
+#[serde(deny_unknown_fields)]
+pub struct ConfigBrush {
+    #[validate(regex(
+        path = *HEX_COLOR_RE,
+        message = "invalid value for 'tools.brush.color': valid value is '#rrggbb' or '#rrggbbaa'."
+    ))]
+    pub color: String,
+
+    /// Logical pixels. Values above the brush's maximum are limited to it.
+    #[validate(range(min = 1, message = "invalid value for 'tools.brush.width': must be at least 1."))]
+    pub width: u32,
 }
 
 fn validate_save_path(save_path: &str) -> Result<(), ValidationError> {
@@ -73,11 +100,21 @@ impl Default for ConfigAppearance {
     }
 }
 
+impl Default for ConfigBrush {
+    fn default() -> Self {
+        ConfigBrush {
+            color: DEFAULT_BRUSH_COLOR.to_string(),
+            width: DEFAULT_BRUSH_WIDTH,
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
             general: ConfigGeneral::default(),
             appearance: ConfigAppearance::default(),
+            tools: ConfigTools::default(),
         }
     }
 }
@@ -105,5 +142,39 @@ impl Config {
         }
 
         Ok(toml::from_str(&std::fs::read_to_string(&path)?)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn config_without_tools_section_uses_defaults() {
+        let config: Config = toml::from_str("[appearance]\nrect_color = \"#000000\"\n").unwrap();
+        assert_eq!(config.tools.brush.color, DEFAULT_BRUSH_COLOR);
+        assert_eq!(config.tools.brush.width, DEFAULT_BRUSH_WIDTH);
+    }
+
+    #[test]
+    fn brush_section_overrides_only_what_it_sets() {
+        let config: Config = toml::from_str("[tools.brush]\nwidth = 9\n").unwrap();
+        assert_eq!(config.tools.brush.color, DEFAULT_BRUSH_COLOR);
+        assert_eq!(config.tools.brush.width, 9);
+    }
+
+    #[test]
+    fn example_config_parses() {
+        let config: Config = toml::from_str(include_str!("../../../examples/config.toml")).unwrap();
+        assert!(config.tools.brush.validate().is_ok());
+    }
+
+    #[test]
+    fn invalid_brush_values_are_rejected() {
+        let brush = |color: &str, width| ConfigBrush { color: color.to_string(), width };
+        assert!(brush("#ff0000", 1).validate().is_ok());
+        assert!(brush("#ff000080", 1).validate().is_ok());
+        assert!(brush("red", 1).validate().is_err());
+        assert!(brush("#ff0000", 0).validate().is_err());
     }
 }
