@@ -1,4 +1,6 @@
+use crate::state::config::format_rrggbbaa;
 use crate::state::hsv::Hsv;
+use ricture_config::last_used::{LastBrush, LastUsed};
 use ricture_tools::{Setting, Style, Tool, ToolMeta};
 use tiny_skia::Color;
 
@@ -94,6 +96,16 @@ impl Toolbox {
         Style {
             color: self.color,
             width: self.width * scale,
+        }
+    }
+
+    /// The settings to start the next session with.
+    pub(crate) fn last_used(&self) -> LastUsed {
+        LastUsed {
+            brush: LastBrush {
+                color: Some(format_rrggbbaa(self.color)),
+                width: Some(self.width as u32),
+            },
         }
     }
 
@@ -307,6 +319,17 @@ mod tests {
     fn style_scales_width_to_screenshot_pixels() {
         let toolbox = toolbox();
         assert_eq!(toolbox.style(2.0).width, START_WIDTH * 2.0);
+    }
+
+    #[test]
+    fn last_used_reports_the_current_choices() {
+        let mut toolbox = toolbox();
+        toolbox.select(Some(0));
+        toolbox.set_width(9.0);
+        toolbox.pick_color(4);
+        let last_used = toolbox.last_used();
+        assert_eq!(last_used.brush.color.as_deref(), Some("#0a84ffff"));
+        assert_eq!(last_used.brush.width, Some(9));
     }
 
     #[test]

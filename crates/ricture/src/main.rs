@@ -6,6 +6,7 @@ use ricture_capture::Screenshot;
 use ricture_export::clipboard::copy_to_clipboard;
 use ricture_export::png::{encode_png, save_png};
 use ricture_config::config::Config;
+use ricture_config::last_used::LastUsed;
 use ricture_config::validate::Validate;
 use ricture_overlay::{Action, state};
 use std::error::Error;
@@ -52,13 +53,19 @@ fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     );
     let notify_enabled = config.general.enable_notifications;    
     
-    let app_config = state::AppConfig::from(config);
+    let app_config = state::AppConfig::new(config, LastUsed::load());
 
-    let Some((action, (x, y, width, height), screenshot)) =
+    let Some((action, (x, y, width, height), screenshot, last_used)) =
         ricture_overlay::run(screenshot, app_config, ricture_tools::default_tools())?
     else {
         return Ok(());
     };
+
+    // Before exporting: losing this must not affect the screenshot, and the
+    // clipboard export doesn't hand control back the usual way.
+    if let Err(err) = last_used.save() {
+        eprintln!("warning: could not remember tool settings: {err}");
+    }
 
     let cropped = crop(&screenshot, x as u32, y as u32, width as u32, height as u32);
 

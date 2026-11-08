@@ -66,9 +66,11 @@ enable_notifications = true
 rect_color = "#ffffff" # '#rrggbbaa' is also valid
 
 [tools.brush]
-color = "#ff3b30" # '#rrggbbaa' is also valid
-width = 4 # 1..32 logical px, larger values are limited to 32
+# color = "#ff3b30" # '#rrggbbaa' is also valid
+# width = 4 # 1..32 logical px, larger values are limited to 32
 ```
+
+The brush starts with the color and width of the last confirmed screenshot, remembered in `~/.local/state/ricture/state.toml`. Set them in `[tools.brush]` to always start with fixed values instead.
 
 
 

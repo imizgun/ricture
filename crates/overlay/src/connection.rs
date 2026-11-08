@@ -10,6 +10,7 @@ use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity, La
 use crate::handlers::viewporter::ViewportData;
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::wp_viewporter::WpViewporter;
 use smithay_client_toolkit::shm::Shm;
+use ricture_config::last_used::LastUsed;
 use ricture_tools::{Document, Tool};
 use wayland_client::Connection;
 use wayland_client::globals::registry_queue_init;
@@ -21,7 +22,7 @@ pub fn run(
     config: AppConfig,
     tools: Vec<Box<dyn Tool>>,
 ) -> Result<
-    Option<(Action, (f64, f64, f64, f64), ricture_capture::Screenshot)>,
+    Option<(Action, (f64, f64, f64, f64), ricture_capture::Screenshot, LastUsed)>,
     Box<dyn std::error::Error>,
 > {
     let conn = Connection::connect_to_env()?;
@@ -105,7 +106,8 @@ pub fn run(
             let Some(rect) = app.selection.normalized() else {
                 return Ok(None);
             };
-            Ok(Some((action, rect, app.flatten())))
+            let last_used = app.toolbox.last_used();
+            Ok(Some((action, rect, app.flatten(), last_used)))
         }
         Some(ExitFlag::Cancelled) | None => Ok(None),
     }
