@@ -34,7 +34,7 @@ Use `--release` — the overlay redraws itself continuously while open, and an u
 
 ### Runtime dependencies
 
-Copying to clipboard shells out to the `wl-copy` binary from [`wl-clipboard`](https://github.com/bugaevc/wl-clipboard) — it must be installed and on `$PATH` at run time, separately from the build-time dependencies above. `nix build .#default` wraps the binary with it automatically; outside Nix, install `wl-clipboard` through your distro's package manager.
+None beyond the libraries above. The compositor must support `wlr-layer-shell`, `wlr-screencopy` and, for copying to the clipboard, `wlr-data-control` (ricture serves the clipboard itself, no `wl-clipboard` needed) — wlroots-based compositors, niri, Hyprland and KDE do; GNOME does not.
 
 ## Profiling
 
