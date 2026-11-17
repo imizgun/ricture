@@ -34,7 +34,9 @@ impl LayerShellHandler for App {
 
         if self.first_configure {
             self.first_configure = false;
+            ricture_profile::mark("overlay: configured");
 
+            let ui_span = ricture_profile::span("ui: init");
             let scale = self.screenshot.width as f32 / self.width.max(1) as f32;
             match Ui::new(
                 self.screenshot.width,
@@ -47,11 +49,17 @@ impl LayerShellHandler for App {
                 Err(err) => eprintln!("ricture: UI disabled: {err}"),
             }
 
+            drop(ui_span);
+
             let byte_size =
                 self.screenshot.width as usize * self.screenshot.height as usize * 4;
             self.renderer.pool =
                 Some(SlotPool::new(byte_size, &self.shm).expect("failed to create shm pool"));
             self.draw(qh);
+            ricture_profile::mark("first frame committed");
+            if ricture_profile::exit_after_first_frame() {
+                self.exit_flag = Some(ExitFlag::Cancelled);
+            }
         }
     }
 }

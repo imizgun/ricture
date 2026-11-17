@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ricture-profile = { path = "../profile" }
 ricture-capture = { path = "../capture" }
 ricture-config = { path = "../config" }
 ricture-tools = { path = "../tools" }

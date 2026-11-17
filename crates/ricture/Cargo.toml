@@ -3,7 +3,12 @@ name = "ricture"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+# Prints startup timeline, per-frame stage times and memory on exit.
+profiling = ["ricture-profile/enabled"]
+
 [dependencies]
+ricture-profile = { path = "../profile" }
 ricture-capture = { path = "../capture" }
 ricture-overlay = { path = "../overlay" }
 ricture-config = {path = "../config" }

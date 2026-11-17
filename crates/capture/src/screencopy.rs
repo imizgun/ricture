@@ -74,6 +74,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppState {
 
 pub fn capture_first_output() -> Result<crate::state::Screenshot, Box<dyn std::error::Error>> {
     let (_conn, mut eq, mut state) = crate::wayland::connection::connect()?;
+    ricture_profile::mark("capture: connected");
     let qh = eq.handle();
     let _frame =
         state
@@ -89,7 +90,10 @@ pub fn capture_first_output() -> Result<crate::state::Screenshot, Box<dyn std::e
         eq.blocking_dispatch(&mut state)?;
     }
 
+    ricture_profile::mark("capture: frame ready");
+
     let buffer = state.buffer.as_ref().unwrap();
     let mmap = state.mmap_mut.as_ref().unwrap();
+    let _span = ricture_profile::span("capture: to rgba");
     crate::convert::to_rgba(buffer, mmap)
 }

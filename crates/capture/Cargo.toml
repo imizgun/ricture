@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ricture-profile = { path = "../profile" }
 wayland-client = "0.31"
 wayland-protocols-wlr = { version = "0.3", features = ["client"] }
 memmap2 = "0.9"
-rustix = { version = "1", features = ["fs"] }
+rustix = { version = "1", features = ["fs", "mm"] }

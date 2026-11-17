@@ -13,12 +13,16 @@ use std::error::Error;
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn Error>>{
+    ricture_profile::mark("start");
     let config = Config::load()?;
     config.validate()?;
+    ricture_profile::mark("config loaded");
     
     let is_notification_enabled = config.general.enable_notifications;
     
-    if let Err(err) = run(config) {
+    let result = run(config);
+    ricture_profile::report();
+    if let Err(err) = result {
         eprintln!("error: {err}");
 
         if is_notification_enabled {
@@ -39,7 +43,12 @@ fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     // if fullscreen, do only this
     if args.len() > 1 {
         if args[1] == "--fullscreen" {
-            copy_to_clipboard(&encode_png(&screenshot)?)?;
+            let png = {
+                let _span = ricture_profile::span("export: encode png");
+                encode_png(&screenshot)?
+            };
+            let _span = ricture_profile::span("export: clipboard");
+            copy_to_clipboard(&png)?;
             return Ok(());
         }
     }
@@ -67,10 +76,12 @@ fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("warning: could not remember tool settings: {err}");
     }
 
+    ricture_profile::mark("overlay closed");
     let cropped = crop(&screenshot, x as u32, y as u32, width as u32, height as u32);
 
     match action {
         Action::Save => {
+            let _span = ricture_profile::span("export: save png");
             save_png(&cropped, &save_path)?;
             println!("saved {}", save_path.display());
             if notify_enabled {
@@ -78,7 +89,14 @@ fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Action::Copy => {
-            copy_to_clipboard(&encode_png(&cropped)?)?;
+            let png = {
+                let _span = ricture_profile::span("export: encode png");
+                encode_png(&cropped)?
+            };
+            {
+                let _span = ricture_profile::span("export: clipboard");
+                copy_to_clipboard(&png)?;
+            }
             println!("copied screenshot to clipboard");
 
             if notify_enabled {

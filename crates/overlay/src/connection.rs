@@ -91,6 +91,7 @@ pub fn run(
         config,
     };
 
+    ricture_profile::mark("overlay: surface created");
     while !app.exit_flag.is_some() {
         event_queue.blocking_dispatch(&mut app)?;
     }

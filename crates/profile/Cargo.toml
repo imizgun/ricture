@@ -1,0 +1,10 @@
+[package]
+name = "ricture-profile"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+# Off by default: every call compiles to nothing.
+enabled = []
+
+[dependencies]

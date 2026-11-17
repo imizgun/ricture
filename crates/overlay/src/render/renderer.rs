@@ -5,11 +5,10 @@ use tiny_skia::{Mask, Pixmap, Rect};
 pub(crate) struct Renderer {
     /// Composed frame, uploaded to the shm buffer.
     pub(crate) pixmap: Option<Pixmap>,
-    /// Screenshot with committed annotations flattened onto it.
+    /// Screenshot with committed annotations flattened onto it. `None` while
+    /// there are none: the screenshot itself serves then.
     pub(crate) base: Option<Pixmap>,
-    /// `base` with the dim layer on top.
-    pub(crate) dimmed: Option<Pixmap>,
-    /// `Document::revision()` that `base`/`dimmed` were built from.
+    /// `Document::revision()` that `base` was built from.
     pub(crate) doc_revision: Option<u64>,
     /// Clip mask for live gestures, keyed by the selection it was built for.
     pub(crate) clip: Option<(Rect, Mask)>,

@@ -2,6 +2,10 @@
 // renderer into an offscreen buffer that the overlay composites over its own
 // tiny-skia frame, so this window is fully transparent apart from its widgets.
 //
+// The window only covers the panels, not the screen: layout is computed in
+// screen coordinates (`screen-*`), Rust sizes the window to `content-*` and
+// moves it with `origin-*`, which everything is drawn relative to.
+//
 // This file only displays state owned by Rust: values come in through `in`
 // properties, and user actions go out through callbacks. Rust decides what
 // they change and pushes the result back. Only presentation (layout, hover)
@@ -24,7 +28,6 @@ global Theme {
     out property <color> hover: #ffffff17;
     out property <color> accent: #4f8cff;
     out property <color> on-accent: #ffffff;
-    out property <color> frame: #4f8cff99;
     out property <length> radius: 12px;
 }
 
@@ -318,6 +321,13 @@ export component OverlayUi inherits Window {
     callback picker-hue-changed(float);
     callback picker-shade-changed(float, float);
 
+    // Screen size in logical px. The window itself is only as big as the panels.
+    in property <length> screen-width;
+    in property <length> screen-height;
+    // Screen position of the window's top-left corner, logical px.
+    in property <length> origin-x;
+    in property <length> origin-y;
+
     // Selected area in logical px. Panels are shown around it once the user
     // has finished selecting.
     in property <bool> panels-visible;
@@ -336,26 +346,43 @@ export component OverlayUi inherits Window {
     // Place the panel stack below the selection, else above it, else inside
     // along its bottom edge (for selections covering the whole screen).
     property <length> stack-height: toolbar.height + (root.show-settings ? root.gap / 2 + settings.height : 0);
-    property <bool> fits-below: root.sel-y + root.sel-h + root.gap + root.stack-height + root.margin <= root.height;
+    property <bool> fits-below: root.sel-y + root.sel-h + root.gap + root.stack-height + root.margin <= root.screen-height;
     property <bool> fits-above: root.sel-y - root.gap - root.stack-height >= root.margin;
     // Settings go on the side of the toolbar facing away from the selection.
     property <bool> settings-below: root.fits-below;
 
-    // Frame along the screen perimeter.
-    Rectangle {
-        border-width: 2px;
-        border-color: Theme.frame;
-    }
+    // Panel positions on screen.
+    property <length> toolbar-x: max(root.margin, min(root.screen-width - toolbar.width - root.margin,
+        root.sel-x + (root.sel-w - toolbar.width) / 2));
+    property <length> toolbar-y: root.fits-below ? root.sel-y + root.sel-h + root.gap
+        : root.fits-above ? root.sel-y - root.gap - toolbar.height
+        : root.sel-y + root.sel-h - root.gap - toolbar.height;
+    property <length> settings-x: max(root.margin, min(root.screen-width - settings.width - root.margin,
+        root.toolbar-x + (toolbar.width - settings.width) / 2));
+    property <length> settings-y: root.settings-below ? root.toolbar-y + toolbar.height + root.gap / 2
+        : root.toolbar-y - root.gap / 2 - settings.height;
+
+    // Room around the panels for tooltips, which stick out above the toolbar
+    // and past its sides for names wider than a button.
+    property <length> tooltip-room-x: 48px;
+    property <length> tooltip-room-y: 36px;
+
+    // What the window has to cover, on screen; zero-sized while hidden.
+    property <length> content-left: min(root.toolbar-x, root.show-settings ? root.settings-x : root.toolbar-x) - root.tooltip-room-x;
+    property <length> content-top: min(root.toolbar-y, root.show-settings ? root.settings-y : root.toolbar-y) - root.tooltip-room-y;
+    property <length> content-right: max(root.toolbar-x + toolbar.width, root.show-settings ? root.settings-x + settings.width : 0) + root.tooltip-room-x;
+    property <length> content-bottom: max(root.toolbar-y + toolbar.height, root.show-settings ? root.settings-y + settings.height : 0);
+    out property <length> content-x: root.content-left;
+    out property <length> content-y: root.content-top;
+    out property <length> content-width: root.panels-visible ? root.content-right - root.content-left : 0;
+    out property <length> content-height: root.panels-visible ? root.content-bottom - root.content-top : 0;
 
     toolbar := Panel {
         visible: root.panels-visible;
         width: row.preferred-width;
         height: row.preferred-height;
-        x: max(root.margin, min(root.width - self.width - root.margin,
-            root.sel-x + (root.sel-w - self.width) / 2));
-        y: root.fits-below ? root.sel-y + root.sel-h + root.gap
-            : root.fits-above ? root.sel-y - root.gap - self.height
-            : root.sel-y + root.sel-h - root.gap - self.height;
+        x: root.toolbar-x - root.origin-x;
+        y: root.toolbar-y - root.origin-y;
 
         row := HorizontalLayout {
             padding: 6px;
@@ -386,10 +413,8 @@ export component OverlayUi inherits Window {
         visible: root.panels-visible && root.show-settings;
         width: column.preferred-width;
         height: column.preferred-height;
-        x: max(root.margin, min(root.width - self.width - root.margin,
-            toolbar.x + (toolbar.width - self.width) / 2));
-        y: root.settings-below ? toolbar.y + toolbar.height + root.gap / 2
-            : toolbar.y - root.gap / 2 - self.height;
+        x: root.settings-x - root.origin-x;
+        y: root.settings-y - root.origin-y;
 
         column := VerticalLayout {
             padding: 8px;
@@ -446,11 +471,11 @@ export component OverlayUi inherits Window {
         x >= el-x && x < el-x + el-w && y >= el-y && y < el-y + el-h
     }
 
-    // Whether a point (in logical px) lands on interactive UI, so the
-    // overlay knows not to handle it itself.
+    // Whether a point (screen coordinates, logical px) lands on interactive
+    // UI, so the overlay knows not to handle it itself.
     public pure function hit(x: length, y: length) -> bool {
         root.panels-visible && (
-            root.inside(x, y, toolbar.x, toolbar.y, toolbar.width, toolbar.height)
-            || (root.show-settings && root.inside(x, y, settings.x, settings.y, settings.width, settings.height)))
+            root.inside(x, y, root.toolbar-x, root.toolbar-y, toolbar.width, toolbar.height)
+            || (root.show-settings && root.inside(x, y, root.settings-x, root.settings-y, settings.width, settings.height)))
     }
 }

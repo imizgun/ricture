@@ -42,6 +42,11 @@ impl Document {
         removed
     }
 
+    /// Whether no annotation has been placed (an in-progress one aside).
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
     pub fn revision(&self) -> u64 {
         self.revision
     }

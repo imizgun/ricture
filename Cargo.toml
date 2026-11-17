@@ -1,3 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["crates/capture", "crates/config", "crates/export", "crates/notify", "crates/overlay", "crates/ricture", "crates/tools"]
+members = ["crates/capture", "crates/config", "crates/export", "crates/notify", "crates/overlay", "crates/profile", "crates/ricture", "crates/tools"]
+
+# Release build with line tables, for `perf` and the built-in profiler:
+#   cargo prof            (see .cargo/config.toml)
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"

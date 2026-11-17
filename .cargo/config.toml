@@ -1,0 +1,5 @@
+[alias]
+# Profiling build: prints startup timeline, per-frame stages and memory on exit.
+#   cargo prof                              # normal interactive run
+#   RICTURE_PROFILE_EXIT=1 cargo prof       # close right after the first frame
+prof = "run --profile profiling --features profiling --"

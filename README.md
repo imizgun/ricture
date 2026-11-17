@@ -36,6 +36,17 @@ Use `--release` — the overlay redraws itself continuously while open, and an u
 
 Copying to clipboard shells out to the `wl-copy` binary from [`wl-clipboard`](https://github.com/bugaevc/wl-clipboard) — it must be installed and on `$PATH` at run time, separately from the build-time dependencies above. `nix build .#default` wraps the binary with it automatically; outside Nix, install `wl-clipboard` through your distro's package manager.
 
+## Profiling
+
+A profiling build prints a startup timeline (time and memory per stage) and per-frame stage statistics to stderr on exit:
+
+```sh
+cargo prof                          # interactive run, report when the overlay closes
+RICTURE_PROFILE_EXIT=1 cargo prof   # close right after the first frame, for repeatable startup numbers
+```
+
+`cargo prof` is an alias (see [`.cargo/config.toml`](./.cargo/config.toml)) for `cargo run --profile profiling --features profiling`. The `profiling` profile is `release` plus line tables, so it also works with `perf`. Without the feature, all profiling calls compile to nothing.
+
 ## Running
 
 ```sh

@@ -1,9 +1,10 @@
+use crate::render::dim::compose_dimmed;
 use crate::state::App;
-use ricture_capture::Screenshot;
+use ricture_capture::{Screenshot, alloc_frame};
 use smithay_client_toolkit::compositor::FrameCallbackData;
 use smithay_client_toolkit::shell::WaylandSurface;
 use tiny_skia::{
-    Color, FillRule, Mask, Paint, PathBuilder, Pixmap, PixmapMut, Rect, Stroke, Transform,
+    FillRule, IntSize, Mask, Paint, PathBuilder, Pixmap, PixmapMut, Rect, Stroke, Transform,
 };
 use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
@@ -12,8 +13,7 @@ impl App {
     /// Composes and commits a frame:
     ///
     /// ```text
-    /// dimmed (screenshot + annotations + dim)
-    ///   + undimmed selection (from base)
+    /// base (screenshot + annotations), dimmed outside the selection
     ///   + live gesture, clipped to the selection
     ///   + selection border
     ///   + Slint UI layer
@@ -41,11 +41,14 @@ impl App {
             return;
         }
 
+        let _frame = ricture_profile::span("frame");
         if doc_changed {
+            let _span = ricture_profile::span("frame: rebuild base");
             self.rebuild_base(width, height);
         }
+        let compose = ricture_profile::span("frame: compose");
         if first_draw {
-            self.renderer.pixmap = Some(Pixmap::new(width, height).expect("non-zero surface size"));
+            self.renderer.pixmap = Some(frame_pixmap(width, height, None));
         }
 
         let selection_rect = self.selection.rect();
@@ -56,14 +59,13 @@ impl App {
         }
 
         let pixmap = self.renderer.pixmap.as_mut().unwrap();
-        let base = self.renderer.base.as_ref().unwrap();
-        pixmap
-            .data_mut()
-            .copy_from_slice(self.renderer.dimmed.as_ref().unwrap().data());
-
-        if let Some(rect) = selection_rect {
-            undim_rect(pixmap, base.data(), rect, width, height);
-        }
+        let base = self
+            .renderer
+            .base
+            .as_ref()
+            .map_or(self.screenshot.rgba.as_slice(), |base| base.data());
+        let undimmed = selection_rect.and_then(|rect| pixel_bounds(rect, width, height));
+        compose_dimmed(pixmap.data_mut(), base, width as usize, undimmed);
 
         if self.document.is_drawing() {
             let clip = self.renderer.clip.as_ref().map(|(_, mask)| mask);
@@ -84,6 +86,8 @@ impl App {
         if let Some(ui) = &self.ui {
             ui.composite_onto(pixmap);
         }
+        drop(compose);
+        let to_shm = ricture_profile::span("frame: to shm (bgra)");
 
         let pool = self
             .renderer
@@ -110,6 +114,8 @@ impl App {
             dst.copy_from_slice(&swapped.to_ne_bytes());
         }
 
+        drop(to_shm);
+
         // Only a selection change is cheap to bound; anything else (UI,
         // annotations) repaints the whole buffer.
         let only_selection = !first_draw && !doc_changed && !gesture_changed && !ui_changed;
@@ -135,21 +141,14 @@ impl App {
         self.selection.mark_drawn();
     }
 
-    /// Re-flattens committed annotations onto the screenshot and re-dims it.
+    /// Re-flattens committed annotations onto the screenshot.
     fn rebuild_base(&mut self, width: u32, height: u32) {
-        let mut base = Pixmap::new(width, height).expect("non-zero surface size");
-        // The capture is opaque, so straight and premultiplied RGBA coincide.
-        base.data_mut().copy_from_slice(&self.screenshot.rgba);
-        self.document.render_committed(&mut base.as_mut());
-
-        let mut dimmed = base.clone();
-        let full_rect = Rect::from_ltrb(0.0, 0.0, width as f32, height as f32).unwrap();
-        let mut dim = Paint::default();
-        dim.set_color(Color::from_rgba8(0, 0, 0, 140));
-        dimmed.fill_rect(full_rect, &dim, Transform::identity(), None);
-
-        self.renderer.base = Some(base);
-        self.renderer.dimmed = Some(dimmed);
+        self.renderer.base = (!self.document.is_empty()).then(|| {
+            // The capture is opaque, so straight and premultiplied RGBA coincide.
+            let mut base = frame_pixmap(width, height, Some(&self.screenshot.rgba));
+            self.document.render_committed(&mut base.as_mut());
+            base
+        });
         self.renderer.doc_revision = Some(self.document.revision());
     }
 
@@ -180,23 +179,23 @@ impl crate::render::renderer::Renderer {
     }
 }
 
-fn undim_rect(pixmap: &mut Pixmap, base_rgba: &[u8], rect: Rect, width: u32, height: u32) {
+/// A screen-sized pixmap in a huge-page backed buffer, see `alloc_frame`.
+fn frame_pixmap(width: u32, height: u32, contents: Option<&[u8]>) -> Pixmap {
+    let mut data = alloc_frame(width as usize * height as usize * 4);
+    if let Some(contents) = contents {
+        data.copy_from_slice(contents);
+    }
+    let size = IntSize::from_wh(width, height).expect("non-zero surface size");
+    Pixmap::from_vec(data, size).expect("buffer matches its size")
+}
+
+/// Whole pixels covered by `rect`, clipped to the buffer, as `(x0, y0, x1, y1)`.
+fn pixel_bounds(rect: Rect, width: u32, height: u32) -> Option<(usize, usize, usize, usize)> {
     let x0 = rect.left().floor().max(0.0) as usize;
     let y0 = rect.top().floor().max(0.0) as usize;
     let x1 = (rect.right().ceil() as usize).min(width as usize);
     let y1 = (rect.bottom().ceil() as usize).min(height as usize);
-    if x1 <= x0 || y1 <= y0 {
-        return;
-    }
-
-    let stride = width as usize * 4;
-    let row_bytes = (x1 - x0) * 4;
-    let dst = pixmap.data_mut();
-    for y in y0..y1 {
-        let row_start = y * stride + x0 * 4;
-        dst[row_start..row_start + row_bytes]
-            .copy_from_slice(&base_rgba[row_start..row_start + row_bytes]);
-    }
+    (x0 < x1 && y0 < y1).then_some((x0, y0, x1, y1))
 }
 
 fn damage_bounds(
