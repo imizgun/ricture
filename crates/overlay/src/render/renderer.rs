@@ -1,5 +1,5 @@
 use smithay_client_toolkit::shm::slot::SlotPool;
-use tiny_skia::{Mask, Pixmap, Rect};
+use tiny_skia::Pixmap;
 
 #[derive(Default)]
 pub(crate) struct Renderer {
@@ -10,7 +10,5 @@ pub(crate) struct Renderer {
     pub(crate) base: Option<Pixmap>,
     /// `Document::revision()` that `base` was built from.
     pub(crate) doc_revision: Option<u64>,
-    /// Clip mask for live gestures, keyed by the selection it was built for.
-    pub(crate) clip: Option<(Rect, Mask)>,
     pub(crate) pool: Option<SlotPool>,
 }

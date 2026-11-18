@@ -1,5 +1,5 @@
 use crate::tool::{Annotation, Gesture, Setting, Style, Tool, ToolMeta};
-use tiny_skia::{LineCap, LineJoin, Mask, Paint, PathBuilder, PixmapMut, Point, Stroke, Transform};
+use tiny_skia::{LineCap, LineJoin, Paint, PathBuilder, PixmapMut, Point, Stroke, Transform};
 
 /// Freehand drawing.
 pub struct Brush;
@@ -44,7 +44,7 @@ impl Gesture for BrushStroke {
 }
 
 impl Annotation for BrushStroke {
-    fn render(&self, target: &mut PixmapMut<'_>, clip: Option<&Mask>) {
+    fn render(&self, target: &mut PixmapMut<'_>) {
         let mut paint = Paint::default();
         paint.set_color(self.style.color);
         paint.anti_alias = true;
@@ -56,7 +56,7 @@ impl Annotation for BrushStroke {
         // A click without movement leaves a round dot.
         if rest.is_empty() {
             if let Some(dot) = PathBuilder::from_circle(first.x, first.y, self.style.width / 2.0) {
-                target.fill_path(&dot, &paint, tiny_skia::FillRule::Winding, Transform::identity(), clip);
+                target.fill_path(&dot, &paint, tiny_skia::FillRule::Winding, Transform::identity(), None);
             }
             return;
         }
@@ -81,6 +81,6 @@ impl Annotation for BrushStroke {
             line_join: LineJoin::Round,
             ..Default::default()
         };
-        target.stroke_path(&path, &paint, &stroke, Transform::identity(), clip);
+        target.stroke_path(&path, &paint, &stroke, Transform::identity(), None);
     }
 }

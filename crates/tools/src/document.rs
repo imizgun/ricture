@@ -1,5 +1,5 @@
 use crate::tool::{Annotation, Gesture, Style, Tool};
-use tiny_skia::{Mask, PixmapMut, Point};
+use tiny_skia::{PixmapMut, Point};
 
 /// The annotations placed on the screenshot, plus the one being drawn.
 #[derive(Default)]
@@ -54,14 +54,14 @@ impl Document {
     /// Draws every finished annotation, oldest first.
     pub fn render_committed(&self, target: &mut PixmapMut<'_>) {
         for item in &self.items {
-            item.render(target, None);
+            item.render(target);
         }
     }
 
     /// Draws the in-progress gesture, if any.
-    pub fn render_active(&self, target: &mut PixmapMut<'_>, clip: Option<&Mask>) {
+    pub fn render_active(&self, target: &mut PixmapMut<'_>) {
         if let Some(gesture) = &self.active {
-            gesture.render(target, clip);
+            gesture.render(target);
         }
     }
 }
@@ -106,17 +106,14 @@ mod tests {
     }
 
     #[test]
-    fn click_leaves_a_dot_and_clip_is_respected() {
+    fn a_click_leaves_a_dot() {
         let mut doc = Document::default();
         doc.begin(&Brush, Point::from_xy(50.0, 50.0), red(10.0));
 
-        let mut clip = tiny_skia::Mask::new(100, 100).unwrap();
-        let left_half = tiny_skia::PathBuilder::from_rect(tiny_skia::Rect::from_xywh(0.0, 0.0, 50.0, 100.0).unwrap());
-        clip.fill_path(&left_half, tiny_skia::FillRule::Winding, false, tiny_skia::Transform::identity());
-
         let mut canvas = Pixmap::new(100, 100).unwrap();
-        doc.render_active(&mut canvas.as_mut(), Some(&clip));
-        assert_eq!(pixel(&canvas, 47, 50), [255, 0, 0, 255], "inside clip");
-        assert_eq!(pixel(&canvas, 53, 50), [0, 0, 0, 0], "outside clip");
+        doc.render_active(&mut canvas.as_mut());
+        assert_eq!(pixel(&canvas, 47, 50), [255, 0, 0, 255], "within the dot");
+        assert_eq!(pixel(&canvas, 53, 50), [255, 0, 0, 255], "on its other side");
+        assert_eq!(pixel(&canvas, 50, 20), [0, 0, 0, 0], "away from it");
     }
 }

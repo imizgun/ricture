@@ -1,11 +1,9 @@
-use crate::render::dim::compose_dimmed;
+use crate::render::dim::{compose_dimmed, dim_outside};
 use crate::state::App;
 use ricture_capture::{Screenshot, alloc_frame};
 use smithay_client_toolkit::compositor::FrameCallbackData;
 use smithay_client_toolkit::shell::WaylandSurface;
-use tiny_skia::{
-    FillRule, IntSize, Mask, Paint, PathBuilder, Pixmap, PixmapMut, Rect, Stroke, Transform,
-};
+use tiny_skia::{IntSize, Paint, PathBuilder, Pixmap, PixmapMut, Rect, Stroke, Transform};
 use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_shm;
 
@@ -13,11 +11,15 @@ impl App {
     /// Composes and commits a frame:
     ///
     /// ```text
-    /// base (screenshot + annotations), dimmed outside the selection
-    ///   + live gesture, clipped to the selection
+    /// base (screenshot + annotations) + the live gesture,
+    ///   dimmed outside the selection
     ///   + selection border
     ///   + Slint UI layer
     /// ```
+    ///
+    /// Nothing is clipped to the selection: annotations may be drawn past it
+    /// and are dimmed like the screenshot under them, the same before and
+    /// after the gesture is committed. The export crops to the selection.
     pub(crate) fn draw(&mut self, qh: &QueueHandle<Self>) {
         // Draw in screenshot (physical) pixels; the viewport maps this buffer
         // onto the logical surface size.
@@ -54,10 +56,6 @@ impl App {
         let selection_rect = self.selection.rect();
         let prev_rect = self.selection.prev_rect();
 
-        if let Some(rect) = selection_rect.filter(|_| self.document.is_drawing()) {
-            self.renderer.update_clip(rect, width, height);
-        }
-
         let pixmap = self.renderer.pixmap.as_mut().unwrap();
         let base = self
             .renderer
@@ -65,11 +63,14 @@ impl App {
             .as_ref()
             .map_or(self.screenshot.rgba.as_slice(), |base| base.data());
         let undimmed = selection_rect.and_then(|rect| pixel_bounds(rect, width, height));
-        compose_dimmed(pixmap.data_mut(), base, width as usize, undimmed);
-
         if self.document.is_drawing() {
-            let clip = self.renderer.clip.as_ref().map(|(_, mask)| mask);
-            self.document.render_active(&mut pixmap.as_mut(), clip);
+            // Two passes, because the gesture has to be in place before the
+            // dimming runs over it.
+            pixmap.data_mut().copy_from_slice(base);
+            self.document.render_active(&mut pixmap.as_mut());
+            dim_outside(pixmap.data_mut(), width as usize, undimmed);
+        } else {
+            compose_dimmed(pixmap.data_mut(), base, width as usize, undimmed);
         }
 
         if let Some(rect) = selection_rect {
@@ -162,23 +163,6 @@ impl App {
     }
 }
 
-impl crate::render::renderer::Renderer {
-    /// Mask limiting live gestures to the selection. Rebuilt only when the
-    /// selection moves, since it is screen-sized.
-    fn update_clip(&mut self, rect: Rect, width: u32, height: u32) {
-        if self.clip.as_ref().is_none_or(|(key, _)| *key != rect) {
-            let mut mask = Mask::new(width, height).expect("non-zero surface size");
-            mask.fill_path(
-                &PathBuilder::from_rect(rect),
-                FillRule::Winding,
-                false,
-                Transform::identity(),
-            );
-            self.clip = Some((rect, mask));
-        }
-    }
-}
-
 /// A screen-sized pixmap in a huge-page backed buffer, see `alloc_frame`.
 fn frame_pixmap(width: u32, height: u32, contents: Option<&[u8]>) -> Pixmap {
     let mut data = alloc_frame(width as usize * height as usize * 4);
@@ -231,4 +215,62 @@ fn damage_bounds(
     let bottom = b.ceil().min(height as f32) as i32;
 
     Some((x, y, (right - x).max(0), (bottom - y).max(0)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ricture_tools::{Brush, Document, Style};
+    use tiny_skia::{Color, Point};
+
+    const WIDTH: usize = 60;
+    const HEIGHT: usize = 40;
+    /// Half the canvas, so a stroke across it falls on both sides.
+    const SELECTION: (usize, usize, usize, usize) = (20, 5, 45, 35);
+
+    fn screenshot() -> Vec<u8> {
+        vec![255; WIDTH * HEIGHT * 4]
+    }
+
+    fn render(pixels: &mut [u8], draw: impl FnOnce(&mut PixmapMut<'_>)) {
+        let mut canvas = PixmapMut::from_bytes(pixels, WIDTH as u32, HEIGHT as u32).unwrap();
+        draw(&mut canvas);
+    }
+
+    /// The whole point of composing the way `draw` does: a stroke that runs
+    /// past the selection must look the same while it is drawn as it does
+    /// once the button comes up. Clipping the live gesture to the selection
+    /// is what used to make the part outside appear only on release.
+    #[test]
+    fn a_stroke_crossing_the_selection_survives_the_button_coming_up() {
+        let mut document = Document::default();
+        let style = Style { color: Color::from_rgba8(255, 0, 0, 255), width: 6.0 };
+        document.begin(&Brush, Point::from_xy(5.0, 20.0), style);
+        for x in (8..=55).step_by(2) {
+            document.update(Point::from_xy(x as f32, 20.0));
+        }
+
+        // While drawing: the gesture goes onto the screenshot, then the
+        // dimming runs over both.
+        let mut live = screenshot();
+        render(&mut live, |canvas| document.render_active(canvas));
+        dim_outside(&mut live, WIDTH, Some(SELECTION));
+
+        // Committed: the gesture is part of the base `compose_dimmed` reads.
+        document.finish();
+        let mut base = screenshot();
+        render(&mut base, |canvas| document.render_committed(canvas));
+        let mut committed = vec![0; base.len()];
+        compose_dimmed(&mut committed, &base, WIDTH, Some(SELECTION));
+
+        assert_eq!(live, committed, "the frame changed when the gesture was committed");
+
+        // And the stroke really is on both sides of the selection's edge.
+        let mut empty = vec![0; base.len()];
+        compose_dimmed(&mut empty, &screenshot(), WIDTH, Some(SELECTION));
+        let at = |x: usize, y: usize| (y * WIDTH + x) * 4;
+        for x in [8, 30, 52] {
+            assert_ne!(live[at(x, 20)..at(x, 20) + 4], empty[at(x, 20)..at(x, 20) + 4], "at x={x}");
+        }
+    }
 }

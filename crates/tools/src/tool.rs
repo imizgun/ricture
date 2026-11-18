@@ -1,11 +1,12 @@
-use tiny_skia::{Color, Mask, PixmapMut, Point};
+use tiny_skia::{Color, PixmapMut, Point};
 
 /// Something drawn on the screenshot: a brush stroke, an arrow, a blurred
 /// region...
 pub trait Annotation {
-    /// Draws onto `target`, a screenshot-sized canvas. `clip`, when given,
-    /// limits drawing to the masked area.
-    fn render(&self, target: &mut PixmapMut<'_>, clip: Option<&Mask>);
+    /// Draws onto `target`, a screenshot-sized canvas. Annotations are not
+    /// confined to the selected area: the overlay shows all of them and the
+    /// export crops afterwards.
+    fn render(&self, target: &mut PixmapMut<'_>);
 }
 
 /// An annotation that is still being drawn (between press and release).

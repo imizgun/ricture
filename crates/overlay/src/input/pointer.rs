@@ -76,21 +76,16 @@ impl App {
         }
 
         match self.toolbox.active() {
-            // A drawing tool: draw, but only starting inside the area.
-            Some(tool) => {
-                let inside = self
-                    .settled_selection()
-                    .is_some_and(|r| {
-                        let (x, y) = (position.0 as f32, position.1 as f32);
-                        x >= r.left() && x <= r.right() && y >= r.top() && y <= r.bottom()
-                    });
-                if inside {
-                    self.document.begin(tool, point(position), self.current_style());
-                    self.canvas_dirty = true;
-                }
+            // A drawing tool, with an area to annotate. Strokes may start and
+            // run anywhere: the export crops to the area anyway, and stopping
+            // them at its edge only hid part of what was being drawn.
+            Some(tool) if self.settled_selection().is_some() => {
+                self.document.begin(tool, point(position), self.current_style());
+                self.canvas_dirty = true;
             }
-            // Select mode: start a new selection.
-            None => {
+            // Select mode, or a tool picked by key before anything was
+            // selected: there has to be a way to select an area.
+            _ => {
                 self.selection.start = Some(position);
                 self.selection.current = Some(position);
                 self.selection.is_dragging = true;

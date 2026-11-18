@@ -23,9 +23,7 @@ pub(crate) fn compose_dimmed(
     undimmed: Option<(usize, usize, usize, usize)>,
 ) {
     let stride = width * BYTES_PER_PIXEL;
-    let (x0, y0, x1, y1) = undimmed
-        .filter(|&(x0, y0, x1, y1)| x0 < x1 && y0 < y1)
-        .map_or((0, 0, 0, 0), |(x0, y0, x1, y1)| (x0, y0, x1.min(width), y1));
+    let (x0, y0, x1, y1) = bounds(undimmed, width);
     let (left, right) = (x0 * BYTES_PER_PIXEL, x1 * BYTES_PER_PIXEL);
 
     for (y, (d, s)) in dst.chunks_exact_mut(stride).zip(base.chunks_exact(stride)).enumerate() {
@@ -37,6 +35,39 @@ pub(crate) fn compose_dimmed(
         d[left..right].copy_from_slice(&s[left..right]);
         dim_row(&mut d[right..], &s[right..]);
     }
+}
+
+/// Dims what `pixels` already holds, outside the same rect. For frames whose
+/// contents have to be drawn before they can be dimmed — a live gesture may
+/// run past the selection, and dimming it along with the screenshot it lies
+/// on is what keeps it looking the same once it is committed.
+pub(crate) fn dim_outside(
+    pixels: &mut [u8],
+    width: usize,
+    undimmed: Option<(usize, usize, usize, usize)>,
+) {
+    let stride = width * BYTES_PER_PIXEL;
+    let (x0, y0, x1, y1) = bounds(undimmed, width);
+    let (left, right) = (x0 * BYTES_PER_PIXEL, x1 * BYTES_PER_PIXEL);
+
+    for (y, row) in pixels.chunks_exact_mut(stride).enumerate() {
+        if y < y0 || y >= y1 {
+            dim_row_in_place(row);
+            continue;
+        }
+        dim_row_in_place(&mut row[..left]);
+        dim_row_in_place(&mut row[right..]);
+    }
+}
+
+/// The rect to leave alone, clipped to the buffer; empty when there is none.
+fn bounds(
+    undimmed: Option<(usize, usize, usize, usize)>,
+    width: usize,
+) -> (usize, usize, usize, usize) {
+    undimmed
+        .filter(|&(x0, y0, x1, y1)| x0 < x1 && y0 < y1)
+        .map_or((0, 0, 0, 0), |(x0, y0, x1, y1)| (x0, y0, x1.min(width), y1))
 }
 
 /// Fixed 16-byte blocks of u16 math, so the compiler turns this into SIMD
@@ -54,6 +85,23 @@ fn dim_row(dst: &mut [u8], src: &[u8]) {
     let (d, s) = (dst_blocks.into_remainder(), src_blocks.remainder());
     for i in 0..d.len() {
         d[i] = dim_byte(s[i], ADD[i]);
+    }
+}
+
+/// As `dim_row`, for a row that is its own source. Spelled out separately
+/// because the two can't share a body: one slice can't be both `&mut` and
+/// `&`.
+fn dim_row_in_place(row: &mut [u8]) {
+    let mut blocks = row.chunks_exact_mut(16);
+    for d in &mut blocks {
+        let d: &mut [u8; 16] = d.try_into().unwrap();
+        for i in 0..16 {
+            d[i] = dim_byte(d[i], ADD[i]);
+        }
+    }
+    let d = blocks.into_remainder();
+    for i in 0..d.len() {
+        d[i] = dim_byte(d[i], ADD[i]);
     }
 }
 
@@ -116,6 +164,22 @@ mod tests {
                     assert_eq!(px[3], dim_byte(base[i + 3], DIM_ALPHA));
                 }
             }
+        }
+    }
+
+    /// Both paths have to agree: a frame drawn and then dimmed must come out
+    /// like one composed from the same pixels in a single pass.
+    #[test]
+    fn dimming_in_place_matches_composing() {
+        let (width, height) = (37, 5);
+        let base = sample(width, height);
+        for undimmed in [None, Some((2, 1, 30, 4)), Some((0, 0, width, height)), Some((5, 2, 5, 2))] {
+            let mut composed = vec![0; base.len()];
+            compose_dimmed(&mut composed, &base, width, undimmed);
+
+            let mut in_place = base.clone();
+            dim_outside(&mut in_place, width, undimmed);
+            assert_eq!(in_place, composed, "for {undimmed:?}");
         }
     }
 
