@@ -1,6 +1,6 @@
 use crate::input::selection::Selection;
 use crate::render::renderer::Renderer;
-use crate::state::{Action, App, AppConfig, ExitFlag, Toolbox};
+use crate::state::{Action, App, AppConfig, ExitFlag, Keymap, Toolbox};
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::output::OutputState;
 use smithay_client_toolkit::registry::RegistryState;
@@ -58,6 +58,11 @@ pub fn run(
 
     layer.commit();
 
+    // Keybinds name tools by id, so they can only be resolved once the tool
+    // set is known.
+    let tool_ids: Vec<&str> = tools.iter().map(|tool| tool.meta().id).collect();
+    let keymap = Keymap::new(&config.keybinds, &tool_ids);
+
     let mut app = App {
         registry_state: RegistryState::new(&globals),
         seat_state: SeatState::new(&globals, &qh),
@@ -74,7 +79,7 @@ pub fn run(
         layer,
         keyboard: None,
         keyboard_focus: false,
-        ctrl_held: false,
+        mods: Default::default(),
         pointer: None,
 
         screenshot,
@@ -85,6 +90,7 @@ pub fn run(
         cursor_over_ui: false,
 
         toolbox: Toolbox::new(tools, config.brush_color, config.brush_width),
+        keymap,
         document: Document::default(),
         canvas_dirty: false,
 

@@ -1,14 +1,11 @@
-use crate::state::{App, ExitFlag};
+use crate::state::{App, Binding, ExitFlag};
+use ricture_config::keybinds::Mods;
 use smithay_client_toolkit::seat::keyboard::{
     KeyEvent, KeyboardHandler, Keysym, Modifiers, RawModifiers,
 };
 use smithay_client_toolkit::shell::WaylandSurface;
 use wayland_client::protocol::{wl_keyboard, wl_surface};
 use wayland_client::{Connection, QueueHandle};
-
-const KEY_C: u32 = 46;
-const KEY_S: u32 = 31;
-const KEY_Z: u32 = 44;
 
 impl KeyboardHandler for App {
     fn enter(
@@ -39,6 +36,8 @@ impl KeyboardHandler for App {
         }
     }
 
+    /// Every key goes through the keymap; one that isn't bound does nothing,
+    /// so the overlay stays open.
     fn press_key(
         &mut self,
         _conn: &Connection,
@@ -51,16 +50,24 @@ impl KeyboardHandler for App {
             return;
         }
 
-        match event.keysym {
-            Keysym::Escape => self.exit_flag = Some(ExitFlag::Cancelled),
-            Keysym::Return | Keysym::space => self.exit_flag = Some(ExitFlag::Copy),
-            _ if self.ctrl_held && event.raw_code == KEY_C => self.exit_flag = Some(ExitFlag::Copy),
-            _ if self.ctrl_held && event.raw_code == KEY_S => self.exit_flag = Some(ExitFlag::Save),
-            _ if self.ctrl_held && event.raw_code == KEY_Z && !self.document.is_drawing() => {
+        // Binds are keyed by position (`raw_code`), not by the symbol the
+        // layout produces, so they also work on a non-latin layout.
+        let Some(binding) = self.keymap.lookup(self.mods, event.raw_code) else {
+            return;
+        };
+
+        match binding {
+            Binding::Cancel => self.exit_flag = Some(ExitFlag::Cancelled),
+            Binding::Copy => self.exit_flag = Some(ExitFlag::Copy),
+            Binding::Save => self.exit_flag = Some(ExitFlag::Save),
+            // While a gesture is in progress the pointer owns the document;
+            // both of these wait for the release.
+            Binding::Undo if !self.document.is_drawing() => {
                 // The renderer notices the revision bump and redraws.
                 self.document.undo();
             }
-            _ => {}
+            Binding::Tool(index) if !self.document.is_drawing() => self.toolbox.select(index),
+            Binding::Undo | Binding::Tool(_) => {}
         }
     }
 
@@ -94,6 +101,13 @@ impl KeyboardHandler for App {
         _raw_modifiers: RawModifiers,
         _layout: u32,
     ) {
-        self.ctrl_held = modifiers.ctrl;
+        // Caps/num lock are deliberately left out: they are states, not keys
+        // a bind is held with.
+        self.mods = Mods {
+            ctrl: modifiers.ctrl,
+            shift: modifiers.shift,
+            alt: modifiers.alt,
+            logo: modifiers.logo,
+        };
     }
 }

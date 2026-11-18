@@ -194,6 +194,7 @@ mod tests {
     impl Tool for Fake {
         fn meta(&self) -> ToolMeta {
             ToolMeta {
+                id: "fake",
                 name: "Fake",
                 icon: "",
                 settings: self.settings,

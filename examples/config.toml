@@ -9,3 +9,20 @@ rect_color = "#ffffff" # '#rrggbbaa' is also valid
 [tools.brush]
 # color = "#ff3b30" # '#rrggbbaa' is also valid
 # width = 4 # 1..32 logical px, larger values are limited to 32
+
+[keybinds]
+# 'Mod+Key' with any of ctrl/shift/alt/super, matched by key position (the
+# names are the labels of a US layout). A list binds several keys to the same
+# action, an empty list ('copy = []') leaves it unbound.
+cancel = "Escape"
+copy = ["Return", "Space", "Ctrl+C"]
+save = "Ctrl+S"
+undo = "Ctrl+Z"
+# Leave the active tool and select the area again.
+select = "0"
+
+[keybinds.tools]
+# By tool name. Tools left out keep the digit of their place in the toolbar.
+# brush = "1"
+# arrow = ["2", "a"]
+# line = "3"

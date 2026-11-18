@@ -2,8 +2,10 @@ use crate::input::selection::Selection;
 use crate::render::renderer::Renderer;
 use crate::state::config::AppConfig;
 use crate::state::exit_flag::ExitFlag;
+use crate::state::keymap::Keymap;
 use crate::state::toolbox::Toolbox;
 use crate::ui::{Ui, UiEvent};
+use ricture_config::keybinds::Mods;
 use ricture_tools::{Document, Style};
 use ricture_capture::Screenshot;
 use smithay_client_toolkit::compositor::CompositorState;
@@ -36,7 +38,8 @@ pub(crate) struct App {
     pub(crate) layer: LayerSurface,
     pub(crate) keyboard: Option<wl_keyboard::WlKeyboard>,
     pub(crate) keyboard_focus: bool,
-    pub(crate) ctrl_held: bool,
+    /// Modifiers currently held, as a keybind expects them.
+    pub(crate) mods: Mods,
     pub(crate) pointer: Option<ThemedPointer>,
 
     pub(crate) screenshot: Screenshot,
@@ -49,6 +52,7 @@ pub(crate) struct App {
     pub(crate) cursor_over_ui: bool,
 
     pub(crate) toolbox: Toolbox,
+    pub(crate) keymap: Keymap,
     pub(crate) document: Document,
     /// The in-progress gesture changed and needs a redraw.
     pub(crate) canvas_dirty: bool,

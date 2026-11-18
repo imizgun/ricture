@@ -32,6 +32,9 @@ pub trait Tool {
 
 /// How a tool presents itself in the toolbar.
 pub struct ToolMeta {
+    /// Stable identifier, independent of the display name: the key this tool
+    /// is listed under in the config (`keybinds.tools.<id>`).
+    pub id: &'static str,
     pub name: &'static str,
     /// SVG path data on a 24x24 viewbox, drawn as a stroke.
     pub icon: &'static str,

@@ -7,6 +7,7 @@ pub struct Brush;
 impl Tool for Brush {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
+            id: "brush",
             name: "Brush",
             icon: "M4 20c2.5 0 5-.8 6-3.5l8.5-8.5a2.1 2.1 0 0 0-3-3L7 13.5C4.5 14.5 4 17 4 20z",
             settings: &[Setting::Color, Setting::Width { min: 1.0, max: 32.0 }],

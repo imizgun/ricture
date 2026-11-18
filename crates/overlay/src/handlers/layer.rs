@@ -42,8 +42,8 @@ impl LayerShellHandler for App {
                 self.screenshot.width,
                 self.screenshot.height,
                 scale,
-                self.toolbox.metas(),
-                self.toolbox.palette(),
+                &self.toolbox,
+                &self.keymap,
             ) {
                 Ok(ui) => self.ui = Some(ui),
                 Err(err) => eprintln!("ricture: UI disabled: {err}"),

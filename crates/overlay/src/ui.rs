@@ -7,7 +7,7 @@ use slint::platform::software_renderer::{
 };
 use slint::platform::{PointerEventButton, WindowAdapter, WindowEvent};
 use crate::render::blit::VisibleRuns;
-use crate::state::Toolbox;
+use crate::state::{Keymap, Toolbox};
 use ricture_tools::{Setting, ToolMeta};
 use slint::{ComponentHandle, LogicalPosition, ModelRc, PhysicalSize, PlatformError, VecModel};
 use std::cell::RefCell;
@@ -68,21 +68,32 @@ pub(crate) struct IntRect {
 
 impl Ui {
     /// `width`/`height` are the buffer size in physical pixels; `scale` maps
-    /// logical surface coordinates to them.
+    /// logical surface coordinates to them. The toolbar and the keybinds it
+    /// advertises don't change while the overlay is open, so they are only
+    /// read here.
     pub(crate) fn new(
         width: u32,
         height: u32,
         scale: f32,
-        tools: impl IntoIterator<Item = ToolMeta>,
-        palette: &[Color],
+        toolbox: &Toolbox,
+        keymap: &Keymap,
     ) -> Result<Self, PlatformError> {
         let window = MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
         platform::install(window.clone())?;
 
         let component = OverlayUi::new()?;
-        let tools: Vec<ToolInfo> = tools.into_iter().map(tool_info).collect();
+        let shortcuts = keymap.tool_labels();
+        let tools: Vec<ToolInfo> = toolbox
+            .metas()
+            .enumerate()
+            .map(|(index, meta)| {
+                tool_info(meta, shortcuts.get(index).map_or("", String::as_str))
+            })
+            .collect();
         component.set_tools(ModelRc::new(VecModel::from(tools)));
-        let swatches: Vec<slint::Color> = palette.iter().copied().map(to_slint_color).collect();
+        component.set_select_shortcut(keymap.select_label().into());
+        let swatches: Vec<slint::Color> =
+            toolbox.palette().iter().copied().map(to_slint_color).collect();
         component.set_swatches(ModelRc::new(VecModel::from(swatches)));
 
         let events = EventQueue::default();
@@ -319,10 +330,11 @@ fn to_slint_color(color: Color) -> slint::Color {
     slint::Color::from_argb_u8(c.alpha(), c.red(), c.green(), c.blue())
 }
 
-fn tool_info(meta: ToolMeta) -> ToolInfo {
+fn tool_info(meta: ToolMeta, shortcut: &str) -> ToolInfo {
     let mut info = ToolInfo {
         name: meta.name.into(),
         icon: meta.icon.into(),
+        shortcut: shortcut.into(),
         ..Default::default()
     };
     for setting in meta.settings {

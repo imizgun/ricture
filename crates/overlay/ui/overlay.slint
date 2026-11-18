@@ -15,6 +15,8 @@ export struct ToolInfo {
     name: string,
     // SVG path data on a 24x24 viewbox, stroked.
     icon: string,
+    // The tool's keybind, shown in its tooltip; empty when it has none.
+    shortcut: string,
     has-color: bool,
     has-width: bool,
     width-min: float,
@@ -25,6 +27,7 @@ global Theme {
     out property <color> panel: #1c1c20e8;
     out property <color> panel-border: #ffffff1f;
     out property <color> fg: #e6e6ea;
+    out property <color> dim: #e6e6ea8c;
     out property <color> hover: #ffffff17;
     out property <color> accent: #4f8cff;
     out property <color> on-accent: #ffffff;
@@ -40,26 +43,40 @@ component Panel inherits Rectangle {
 
 component Tooltip inherits Rectangle {
     in property <string> text;
+    // Shown dimmed after the text; left out when empty.
+    in property <string> hint;
 
-    width: label.preferred-width + 16px;
+    width: row.preferred-width + 16px;
     height: 24px;
     border-radius: 6px;
     background: Theme.panel;
     border-width: 1px;
     border-color: Theme.panel-border;
 
-    label := Text {
-        text: root.text;
-        color: Theme.fg;
-        font-size: 12px;
-        vertical-alignment: center;
-        horizontal-alignment: center;
+    row := HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+
+        Text {
+            text: root.text;
+            color: Theme.fg;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+
+        if root.hint != "": Text {
+            text: root.hint;
+            color: Theme.dim;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
     }
 }
 
 component ToolButton inherits Rectangle {
     in property <string> name;
     in property <string> icon;
+    in property <string> shortcut;
     in property <bool> active;
     callback clicked;
 
@@ -86,6 +103,7 @@ component ToolButton inherits Rectangle {
 
     if touch.has-hover: Tooltip {
         text: root.name;
+        hint: root.shortcut;
         x: (root.width - self.width) / 2;
         y: -self.height - 12px;
     }
@@ -305,6 +323,9 @@ export component OverlayUi inherits Window {
     in property <float> stroke-width;
     in property <bool> color-is-custom;
 
+    // Keybind of the Select button; the tools carry their own.
+    in property <string> select-shortcut;
+
     in property <bool> picker-open;
     in property <float> picker-hue;
     in property <float> picker-saturation;
@@ -364,7 +385,7 @@ export component OverlayUi inherits Window {
 
     // Room around the panels for tooltips, which stick out above the toolbar
     // and past its sides for names wider than a button.
-    property <length> tooltip-room-x: 48px;
+    property <length> tooltip-room-x: 56px;
     property <length> tooltip-room-y: 36px;
 
     // What the window has to cover, on screen; zero-sized while hidden.
@@ -391,6 +412,7 @@ export component OverlayUi inherits Window {
             ToolButton {
                 name: "Select";
                 icon: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5";
+                shortcut: root.select-shortcut;
                 active: root.active-tool == -1;
                 clicked => { root.tool-selected(-1); }
             }
@@ -403,6 +425,7 @@ export component OverlayUi inherits Window {
             for info[index] in root.tools: ToolButton {
                 name: info.name;
                 icon: info.icon;
+                shortcut: info.shortcut;
                 active: root.active-tool == index;
                 clicked => { root.tool-selected(index); }
             }

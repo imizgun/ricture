@@ -1,4 +1,5 @@
 use ricture_config::config::{Config, DEFAULT_BRUSH_COLOR, DEFAULT_BRUSH_WIDTH};
+use ricture_config::keybinds::ConfigKeybinds;
 use ricture_config::last_used::LastUsed;
 use tiny_skia::Color;
 
@@ -7,6 +8,9 @@ pub struct AppConfig {
     pub(crate) brush_color: Color,
     /// Logical px.
     pub(crate) brush_width: f32,
+    /// Resolved against the registered tools once they are known, see
+    /// `Keymap`.
+    pub(crate) keybinds: ConfigKeybinds,
 }
 
 impl Default for AppConfig {
@@ -26,6 +30,7 @@ impl AppConfig {
             rect_color: parse_rrggbbaa(&config.appearance.rect_color),
             brush_color: parse_rrggbbaa(color.as_deref().unwrap_or(DEFAULT_BRUSH_COLOR)),
             brush_width: width.unwrap_or(DEFAULT_BRUSH_WIDTH) as f32,
+            keybinds: config.keybinds,
         }
     }
 }

@@ -1,3 +1,4 @@
+use crate::keybinds::ConfigKeybinds;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -17,6 +18,8 @@ pub struct Config {
     pub appearance: ConfigAppearance,
     #[validate(nested)]
     pub tools: ConfigTools,
+    #[validate(nested)]
+    pub keybinds: ConfigKeybinds,
 }
 
 #[derive(Deserialize, Serialize, Validate)]
@@ -111,6 +114,7 @@ impl Default for Config {
             general: ConfigGeneral::default(),
             appearance: ConfigAppearance::default(),
             tools: ConfigTools::default(),
+            keybinds: ConfigKeybinds::default(),
         }
     }
 }
@@ -168,9 +172,20 @@ mod tests {
     }
 
     #[test]
+    fn the_generated_config_states_the_default_keybinds() {
+        let text = toml::to_string_pretty(&Config::default()).unwrap();
+        let config: Config = toml::from_str(&text).unwrap();
+        assert!(config.validate().is_ok());
+        assert_eq!(config.keybinds.cancel.specs(), ["Escape"]);
+        assert_eq!(config.keybinds.copy.specs(), ["Return", "Space", "Ctrl+C"]);
+        assert!(config.keybinds.tools.is_empty(), "tool keys default to their position");
+    }
+
+    #[test]
     fn example_config_parses() {
         let config: Config = toml::from_str(include_str!("../../../examples/config.toml")).unwrap();
         assert!(config.tools.brush.validate().is_ok());
+        assert!(config.keybinds.validate().is_ok());
     }
 
     #[test]
