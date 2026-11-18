@@ -22,6 +22,7 @@ fn main() -> Result<(), Box<dyn Error>>{
     
     let result = run(config);
     ricture_profile::report();
+    
     if let Err(err) = result {
         eprintln!("error: {err}");
 
