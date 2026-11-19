@@ -175,7 +175,7 @@ mod tests {
     fn the_generated_config_states_the_default_keybinds() {
         let text = toml::to_string_pretty(&Config::default()).unwrap();
         let config: Config = toml::from_str(&text).unwrap();
-        assert!(config.validate().is_ok());
+        assert!(config.keybinds.validate().is_ok());
         assert_eq!(config.keybinds.cancel.specs(), ["Escape"]);
         assert_eq!(config.keybinds.copy.specs(), ["Return", "Space", "Ctrl+C"]);
         assert!(config.keybinds.tools.is_empty(), "tool keys default to their position");
